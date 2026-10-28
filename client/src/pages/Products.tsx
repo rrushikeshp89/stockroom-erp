@@ -1,13 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Archive, ArrowDownRight, ArrowUpRight, ClipboardCheck, Lock, Minus, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import { useApi, useSearchHotkey } from '../lib/hooks';
+import { useApi, useQueryState, useSearchHotkey } from '../lib/hooks';
 import type { Movement, Product, Supplier } from '../lib/types';
 import { fmtDateTime, fmtMoney, fmtMoney0, fmtNum } from '../lib/format';
 import {
-  ConfirmDialog, Drawer, Empty, ErrorState, FillerRows, Modal, Pagination, SearchInput, SegTabs, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, usePaged, useToast,
+  ConfirmDialog, Drawer, Empty, ErrorState, Field, FillerRows, FootError, Modal, Pagination, SearchInput, SegTabs, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, usePaged, useToast, useValidation,
 } from '../components/ui';
 import RowMenu from '../components/RowMenu';
 
@@ -17,10 +16,11 @@ export default function Products() {
   const { can } = useAuth();
   const finance = can('finance:view');
   const { data: products, error, reload } = useApi<Product[]>('/products');
-  const [params, setParams] = useSearchParams();
-  const filter = (params.get('status') as Filter) || 'all';
-  const [category, setCategory] = useState('');
-  const [q, setQ] = useState('');
+  const [status, setStatus] = useQueryState('status', 'all');
+  const filter = status as Filter;
+  // Filters live in the URL: back/forward and refresh keep them.
+  const [category, setCategory] = useQueryState('category');
+  const [q, setQ] = useQueryState('q');
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
 
@@ -69,7 +69,7 @@ export default function Products() {
 
       <section className="section" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="toolbar">
-          <SegTabs<Filter> value={filter} onChange={(v) => setParams(v === 'all' ? {} : { status: v })} options={[
+          <SegTabs<Filter> value={filter} onChange={(v) => setStatus(v, { push: true })} options={[
             { value: 'all', label: 'All', count: products?.length ?? null },
             { value: 'attention', label: 'Needs attention', count: products ? attention : null },
             { value: 'ok', label: 'Healthy', count: products ? products.length - attention : null },
@@ -191,8 +191,21 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [k]: e.target.type === 'number' ? Number(e.target.value) : e.target.value });
+  const wholeNumber = (v: number) => (!Number.isInteger(v) || v < 0 ? 'Enter a whole number, 0 or more' : null);
+  const v = useValidation(form, {
+    name: (x) => (x.trim().length < 2 ? 'Enter a product name' : null),
+    sku: (x) => (x.trim().length < 2 ? 'Enter a SKU (at least 2 characters)' : null),
+    category: (x) => (x.trim().length < 2 ? 'Enter a category' : null),
+    unit: (x) => (!x.trim() ? 'Enter a unit, e.g. bag or case' : null),
+    reorder_point: wholeNumber,
+    reorder_qty: wholeNumber,
+    unit_cost: (x) => (Number.isNaN(x) || x < 0 ? 'Cost can’t be negative' : null),
+    opening_stock: wholeNumber,
+  });
 
   const save = async () => {
+    v.touchAll();
+    if (!v.valid || busy) return;
     setBusy(true); setError(null);
     try {
       const { opening_stock, ...rest } = form;
@@ -205,31 +218,47 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
   return (
     <Modal wide title={product ? 'Edit product' : 'Add product'} description={product ? product.sku : 'Stock can only change through the ledger, so new products start from an opening balance.'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !form.name || !form.sku} onClick={save}>{busy && <span className="spinner" />} Save product</button></>}>
-      <div className="form-grid">
-        <div className="field span-2"><label>Name</label><input className="input" value={form.name} onChange={set('name')} autoFocus /></div>
-        <div className="field"><label>SKU</label><input className="input" value={form.sku} onChange={set('sku')} /></div>
-        <div className="field">
-          <label>Category</label>
-          <input className="input" list="categories" value={form.category} onChange={set('category')} />
+      footer={<><FootError error={error} /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" aria-busy={busy} disabled={busy} onClick={save}><span>Save product</span></button></>}>
+      <form className="form-grid" noValidate onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <Field className="span-2" label="Name" htmlFor="p-name" error={v.error('name')}>
+          <input className="input" value={form.name} onChange={set('name')} autoFocus {...v.bind('name', 'p-name')} />
+        </Field>
+        <Field label="SKU" htmlFor="p-sku" error={v.error('sku')}>
+          <input className="input" value={form.sku} onChange={set('sku')} {...v.bind('sku', 'p-sku')} />
+        </Field>
+        <Field label="Category" htmlFor="p-category" error={v.error('category')}>
+          <input className="input" list="categories" value={form.category} onChange={set('category')} {...v.bind('category', 'p-category')} />
           <datalist id="categories">{categories.map((c) => <option key={c} value={c} />)}</datalist>
-        </div>
-        <div className="field">
-          <label>Supplier</label>
-          <select className="select" value={form.supplier_id ?? ''} onChange={(e) => setForm({ ...form, supplier_id: e.target.value ? Number(e.target.value) : null })}>
+        </Field>
+        <Field label="Supplier" htmlFor="p-supplier">
+          <select id="p-supplier" className="select" value={form.supplier_id ?? ''} onChange={(e) => setForm({ ...form, supplier_id: e.target.value ? Number(e.target.value) : null })}>
             <option value="">No supplier</option>
             {suppliers?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-        </div>
-        <div className="field"><label>Unit</label><input className="input" value={form.unit} onChange={set('unit')} placeholder="bag, case, bottle…" /></div>
-        <div className="field"><label>Reorder point</label><input className="input" type="number" min={0} value={form.reorder_point} onChange={set('reorder_point')} /><span className="hint">Flag as low at or below this.</span></div>
-        <div className="field"><label>Reorder quantity</label><input className="input" type="number" min={0} value={form.reorder_qty} onChange={set('reorder_qty')} /><span className="hint">Typical batch to order.</span></div>
-        <div className="field"><label>Unit cost ($)</label><input className="input" type="number" min={0} step="0.01" value={form.unit_cost} onChange={set('unit_cost')} /></div>
-        {!product
-          ? <div className="field"><label>Opening stock</label><input className="input" type="number" min={0} value={form.opening_stock} onChange={set('opening_stock')} /></div>
-          : <div className="field"><label>On hand</label><div className="input" style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-2)' }}><span className="num">{product.stock}</span><span className="lock-note" style={{ marginLeft: 'auto' }}><Lock size={11} /> ledger only</span></div></div>}
-      </div>
-      {error && <div className="callout red" style={{ marginTop: 16 }}>{error}</div>}
+        </Field>
+        <Field label="Unit" htmlFor="p-unit" error={v.error('unit')}>
+          <input className="input" value={form.unit} onChange={set('unit')} placeholder="bag, case, bottle…" {...v.bind('unit', 'p-unit')} />
+        </Field>
+        <Field label="Reorder point" htmlFor="p-rp" error={v.error('reorder_point')} hint="Flag as low at or below this.">
+          <input className="input" type="number" inputMode="numeric" min={0} value={form.reorder_point} onChange={set('reorder_point')} {...v.bind('reorder_point', 'p-rp')} />
+        </Field>
+        <Field label="Reorder quantity" htmlFor="p-rq" error={v.error('reorder_qty')} hint="Typical batch to order.">
+          <input className="input" type="number" inputMode="numeric" min={0} value={form.reorder_qty} onChange={set('reorder_qty')} {...v.bind('reorder_qty', 'p-rq')} />
+        </Field>
+        <Field label="Unit cost ($)" htmlFor="p-cost" error={v.error('unit_cost')}>
+          <input className="input" type="number" inputMode="decimal" min={0} step="0.01" value={form.unit_cost} onChange={set('unit_cost')} {...v.bind('unit_cost', 'p-cost')} />
+        </Field>
+        {!product ? (
+          <Field label="Opening stock" htmlFor="p-open" error={v.error('opening_stock')}>
+            <input className="input" type="number" inputMode="numeric" min={0} value={form.opening_stock} onChange={set('opening_stock')} {...v.bind('opening_stock', 'p-open')} />
+          </Field>
+        ) : (
+          <Field label="On hand" htmlFor="p-onhand" hint="Changes only through the stock ledger.">
+            <div id="p-onhand" className="input" style={{ display: 'flex', alignItems: 'center', background: 'var(--surface-2)' }}><span>{product.stock}</span><span className="lock-note" style={{ marginLeft: 'auto' }}><Lock size={11} /> ledger only</span></div>
+          </Field>
+        )}
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }
@@ -278,7 +307,7 @@ function ProductDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const { can } = useAuth();
   const { data } = useApi<Product & { movements: Movement[] }>(`/products/${id}`);
   return (
-    <Drawer onClose={onClose} header={data ? (
+    <Drawer onClose={onClose} label={data ? data.name : "Loading"} header={data ? (
       <>
         <div className="row" style={{ gap: 10 }}><StockPill status={data.status} /><span className="muted num" style={{ fontSize: 12 }}>{data.sku}</span></div>
         <h2 className="section-title" style={{ marginTop: 10 }}>{data.name}</h2>

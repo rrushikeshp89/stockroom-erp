@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import type { Permission } from './lib/types';
 import Layout from './components/Layout';
@@ -28,9 +28,10 @@ function Guard({ perm, children }: { perm: Permission; children: ReactNode }) {
   return useAuth().can(perm) ? <>{children}</> : <Forbidden perm={perm} />;
 }
 
-export default function App() {
-  return (
-    <Routes>
+// A data router (rather than <BrowserRouter>) so forms can block navigation with unsaved changes.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <>
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Dashboard />} />
@@ -45,6 +46,19 @@ export default function App() {
         <Route path="access" element={<Access />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-    </Routes>
-  );
+    </>,
+  ),
+  {
+    future: {
+      v7_relativeSplatPath: true,
+      v7_fetcherPersist: true,
+      v7_normalizeFormMethod: true,
+      v7_partialHydration: true,
+      v7_skipActionErrorRevalidation: true,
+    },
+  },
+);
+
+export default function App() {
+  return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 }

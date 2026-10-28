@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Archive, Clock, Lock, Mail, MapPin, Pencil, Phone, Plus, Truck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
-import { useApi, useSearchHotkey } from '../lib/hooks';
+import { useApi, useQueryState, useSearchHotkey } from '../lib/hooks';
 import type { Product, PurchaseOrder, Supplier } from '../lib/types';
 import { fmtMoney0, timeAgo, fmtDate } from '../lib/format';
-import { ConfirmDialog, Drawer, Empty, ErrorState, Modal, POStatusPill, SearchInput, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, useToast } from '../components/ui';
+import { ConfirmDialog, Drawer, Empty, ErrorState, Field, FootError, Modal, POStatusPill, SearchInput, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, useToast, useValidation } from '../components/ui';
 import RowMenu from '../components/RowMenu';
 
 const SWATCHES = ['#151515', '#3B2A20', '#2F6FED', '#1FB83F', '#E39A2D', '#E8456B', '#5E9C76', '#7C5CDB'];
@@ -15,7 +15,7 @@ export default function Suppliers() {
   const { can } = useAuth();
   const finance = can('finance:view');
   const { data, error, reload } = useApi<Supplier[]>('/suppliers');
-  const [q, setQ] = useState('');
+  const [q, setQ] = useQueryState('q');
   const [editing, setEditing] = useState<Supplier | 'new' | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const [archiving, setArchiving] = useState<Supplier | null>(null);
@@ -140,8 +140,15 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier: Supplier | nul
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF({ ...f, [k]: e.target.type === 'number' ? Number(e.target.value) : e.target.value });
+  const v = useValidation(f, {
+    name: (x) => (x.trim().length < 2 ? 'Enter the supplier’s name' : null),
+    email: (x) => (x && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) ? 'That doesn’t look like an email address' : null),
+    lead_time_days: (x) => (!Number.isInteger(x) || x < 0 || x > 120 ? 'Enter 0–120 days' : null),
+  });
 
   const save = async () => {
+    v.touchAll();
+    if (!v.valid || busy) return;
     setBusy(true); setError(null);
     try {
       if (supplier) await api.patch(`/suppliers/${supplier.id}`, f);
@@ -153,33 +160,32 @@ function SupplierForm({ supplier, onClose, onSaved }: { supplier: Supplier | nul
 
   return (
     <Modal wide title={supplier ? 'Edit supplier' : 'Add supplier'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.name} onClick={save}>{busy && <span className="spinner" />} Save supplier</button></>}>
-      <div className="form-grid">
-        <div className="field span-2">
-          <label>Name</label>
+      footer={<><FootError error={error} /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" aria-busy={busy} disabled={busy} onClick={save}><span>Save supplier</span></button></>}>
+      <form className="form-grid" noValidate onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <Field className="span-2" label="Name" htmlFor="s-name" error={v.error('name')}>
           <div className="row">
             <SupplierLogo name={f.name || '?'} color={f.color} size={36} />
-            <input className="input" value={f.name} onChange={set('name')} autoFocus />
+            <input className="input" value={f.name} onChange={set('name')} autoFocus {...v.bind('name', 's-name')} />
           </div>
-        </div>
-        <div className="field"><label>Contact person</label><input className="input" value={f.contact_name} onChange={set('contact_name')} /></div>
-        <div className="field"><label>Email</label><input className="input" type="email" value={f.email} onChange={set('email')} /></div>
-        <div className="field"><label>Phone</label><input className="input" value={f.phone} onChange={set('phone')} /></div>
-        <div className="field"><label>Address</label><input className="input" value={f.address} onChange={set('address')} /></div>
-        <div className="field"><label>Lead time (days)</label><input className="input" type="number" min={0} value={f.lead_time_days} onChange={set('lead_time_days')} /></div>
-        <div className="field"><label>Payment terms</label><input className="input" value={f.payment_terms} onChange={set('payment_terms')} /></div>
+        </Field>
+        <Field label="Contact person" htmlFor="s-contact"><input id="s-contact" className="input" value={f.contact_name} onChange={set('contact_name')} /></Field>
+        <Field label="Email" htmlFor="s-email" error={v.error('email')}><input className="input" type="email" inputMode="email" value={f.email} onChange={set('email')} {...v.bind('email', 's-email')} /></Field>
+        <Field label="Phone" htmlFor="s-phone"><input id="s-phone" className="input" type="tel" value={f.phone} onChange={set('phone')} /></Field>
+        <Field label="Address" htmlFor="s-address"><input id="s-address" className="input" value={f.address} onChange={set('address')} /></Field>
+        <Field label="Lead time (days)" htmlFor="s-lead" error={v.error('lead_time_days')}><input className="input" type="number" inputMode="numeric" min={0} value={f.lead_time_days} onChange={set('lead_time_days')} {...v.bind('lead_time_days', 's-lead')} /></Field>
+        <Field label="Payment terms" htmlFor="s-terms"><input id="s-terms" className="input" value={f.payment_terms} onChange={set('payment_terms')} /></Field>
         <div className="field span-2">
-          <label>Tile colour</label>
-          <div className="row">
+          <span className="label" id="s-colour">Tile colour</span>
+          <div className="row" role="group" aria-labelledby="s-colour">
             {SWATCHES.map((c) => (
-              <button key={c} type="button" onClick={() => setF({ ...f, color: c })} aria-label={c}
-                style={{ width: 24, height: 24, borderRadius: 7, background: c, border: 0, cursor: 'pointer', boxShadow: f.color === c ? '0 0 0 2px #fff, 0 0 0 4px var(--ink)' : 'none' }} />
+              <button key={c} type="button" className="swatch hit" onClick={() => setF({ ...f, color: c })} aria-label={`Colour ${c}`} aria-pressed={f.color === c}
+                style={{ background: c, boxShadow: f.color === c ? '0 0 0 2px #fff, 0 0 0 4px var(--ink)' : 'none' }} />
             ))}
           </div>
         </div>
-        <div className="field span-2"><label>Notes</label><textarea className="textarea" value={f.notes} onChange={set('notes')} /></div>
-      </div>
-      {error && <div className="callout red" style={{ marginTop: 16 }}>{error}</div>}
+        <Field className="span-2" label="Notes" htmlFor="s-notes"><textarea id="s-notes" className="textarea" value={f.notes} onChange={set('notes')} /></Field>
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }
@@ -188,7 +194,7 @@ function SupplierDrawer({ id, onClose }: { id: number; onClose: () => void }) {
   const navigate = useNavigate();
   const { data } = useApi<Supplier & { products: Product[]; orders: PurchaseOrder[] }>(`/suppliers/${id}`);
   return (
-    <Drawer onClose={onClose} header={data ? (
+    <Drawer onClose={onClose} label={data ? data.name : "Loading"} header={data ? (
       <div className="row" style={{ gap: 14 }}>
         <SupplierLogo name={data.name} color={data.color} size={44} />
         <div><h2 className="section-title">{data.name}</h2><p className="section-sub">{data.contact_name} · {data.payment_terms}</p></div>

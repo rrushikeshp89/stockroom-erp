@@ -53,15 +53,63 @@ export function SupplierLogo({ name, color, size = 26 }: { name?: string | null;
 
 // ── Inputs ───────────────────────────────────────────────────────────────────
 
-export const SearchInput = forwardRef<HTMLInputElement, { value: string; onChange: (v: string) => void; placeholder?: string; width?: number }>(
-  ({ value, onChange, placeholder = 'Search', width = 220 }, ref) => (
-    <label className="search" style={{ width }}>
-      <Search size={14} />
-      <input ref={ref} className="input" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} aria-label={placeholder} />
-      {!value && <kbd>/</kbd>}
-    </label>
-  ),
+/**
+ * Search box that updates its own text immediately but reports changes debounced
+ * (250ms), so filtering and URL updates don't run on every keystroke.
+ */
+export const SearchInput = forwardRef<HTMLInputElement, { value: string; onChange: (v: string) => void; placeholder?: string; width?: number; debounce?: number }>(
+  ({ value, onChange, placeholder = 'Search', width = 220, debounce = 250 }, ref) => {
+    const [text, setText] = useState(value);
+    const latest = useRef(onChange);
+    latest.current = onChange;
+    // Follow external changes (back/forward, cleared filters).
+    useEffect(() => { setText((t) => (t === value ? t : value)); }, [value]);
+    useEffect(() => {
+      if (text === value) return;
+      const t = setTimeout(() => latest.current(text), debounce);
+      return () => clearTimeout(t);
+    }, [text, value, debounce]);
+    return (
+      <label className="search" style={{ width }}>
+        <Search size={14} aria-hidden="true" />
+        <input ref={ref} type="search" className="input" value={text} placeholder={placeholder} onChange={(e) => setText(e.target.value)} aria-label={placeholder} />
+        {!text && <kbd aria-hidden="true">/</kbd>}
+      </label>
+    );
+  },
 );
+
+/** A form field: label, control, and one reserved line for the hint or error, so messages never shift the layout. */
+export function Field({ label, htmlFor, error, hint, children, className }: {
+  label: ReactNode; htmlFor: string; error?: string | null; hint?: ReactNode; children: ReactNode; className?: string;
+}) {
+  return (
+    <div className={`field ${className ?? ''}`}>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+      <span id={`${htmlFor}-msg`} className={`field-msg ${error ? 'error' : ''}`} role={error ? 'alert' : undefined}>{error || hint || ''}</span>
+    </div>
+  );
+}
+
+/** Validate on blur (and on submit), never on every keystroke. */
+export function useValidation<T extends Record<string, unknown>>(values: T, rules: { [K in keyof T]?: (v: T[K], all: T) => string | null }) {
+  const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({});
+  const errors = {} as Partial<Record<keyof T, string | null>>;
+  for (const k of Object.keys(rules) as (keyof T)[]) errors[k] = rules[k]!(values[k], values);
+  return {
+    error: (k: keyof T) => (touched[k] ? errors[k] ?? null : null),
+    /** Props for a control: blur marks it touched; aria wiring points at the message line. */
+    bind: (k: keyof T, id: string) => ({
+      id,
+      onBlur: () => setTouched((t) => ({ ...t, [k]: true })),
+      'aria-invalid': touched[k] && errors[k] ? true : undefined,
+      'aria-describedby': `${id}-msg`,
+    }),
+    touchAll: () => setTouched(Object.fromEntries(Object.keys(rules).map((k) => [k, true])) as Partial<Record<keyof T, boolean>>),
+    valid: Object.values(errors).every((e) => !e),
+  };
+}
 
 export function SegTabs<T extends string>({ value, onChange, options }: {
   value: T; onChange: (v: T) => void; options: { value: T; label: string; count?: number | null }[];
@@ -270,7 +318,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((t: Omit<Toast, 'id'>) => {
     const id = nextId.current++;
     setToasts((all) => [...all, { ...t, id }]);
-    setTimeout(() => setToasts((all) => all.filter((x) => x.id !== id)), t.kind === 'error' ? 6000 : 4200);
+    setTimeout(() => setToasts((all) => all.filter((x) => x.id !== id)), 4000);
   }, []);
   return (
     <ToastContext.Provider value={push}>
@@ -278,7 +326,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div className="toasts" aria-live="polite">
           {toasts.map((t) => (
-            <div key={t.id} className={`toast ${t.kind}`}>
+            <div key={t.id} className={`toast ${t.kind}`} role={t.kind === 'error' ? 'alert' : 'status'}>
               <span className="t-icon">{t.kind === 'success' ? <Check size={13} strokeWidth={3} /> : <X size={13} strokeWidth={3} />}</span>
               <div>
                 <div style={{ fontWeight: 500 }}>{t.title}</div>

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Lock, Plus, Send, Sparkles, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import { useApi } from '../lib/hooks';
 import type { Person, Product, PurchaseOrder, Supplier } from '../lib/types';
 import { fmtMoney } from '../lib/format';
-import { Empty, Sk, StockPill, SupplierLogo, useToast } from '../components/ui';
+import { ConfirmDialog, Empty, Sk, StockPill, SupplierLogo, useToast } from '../components/ui';
 
 interface Line { product_id: number; quantity: number; unit_cost?: number }
 
@@ -31,8 +31,26 @@ export default function PurchaseOrderForm() {
   const [busy, setBusy] = useState<'draft' | 'submit' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ── Unsaved-changes guard ──────────────────────────────────────────────────
+  const snapshot = JSON.stringify({ supplierId, lines, notes, expected, assignedTo });
+  const baseline = useRef<string | null>(null);
+  const saved = useRef(false);
+  const ready = Boolean(suppliers && products && (!editing || existing));
+  useEffect(() => { if (ready && baseline.current === null) baseline.current = snapshot; }, [ready, snapshot]);
+  const dirty = baseline.current !== null && snapshot !== baseline.current && (editing || supplierId !== null);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+    dirty && !saved.current && currentLocation.pathname !== nextLocation.pathname);
+  const leaving = useRef(false);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
   useEffect(() => {
     if (existing) {
+      baseline.current = null; // re-baseline once the order's own values are in
       setSupplierId(existing.supplier_id);
       setLines(existing.lines!.map((l) => ({ product_id: l.product_id, quantity: l.quantity, unit_cost: l.unit_cost })));
       setAssignedTo(existing.assigned_to);
@@ -72,6 +90,7 @@ export default function PurchaseOrderForm() {
   const update = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
 
   const save = async (submit: boolean) => {
+    if (busy) return;
     setBusy(submit ? 'submit' : 'draft'); setError(null);
     const body = {
       supplier_id: supplierId, lines: lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity, ...(finance ? { unit_cost: l.unit_cost } : {}) })),
@@ -86,9 +105,11 @@ export default function PurchaseOrderForm() {
         po = await api.post<PurchaseOrder>('/purchase-orders', { ...body, submit });
       }
       toast({ kind: 'success', title: submit ? 'Submitted for approval' : 'Draft saved', body: `${po.number} · ${po.supplier_name}` });
+      saved.current = true;
       navigate(`/purchase-orders/${po.id}`);
     } catch (e) {
       setError((e as Error).message);
+      toast({ kind: 'error', title: 'Could not save the order', body: (e as Error).message });
       setBusy(null);
     }
   };
@@ -217,7 +238,7 @@ export default function PurchaseOrderForm() {
             <label>Notes</label>
             <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Delivery instructions, reasons for the order…" />
           </div>
-          {error && <div className="callout red">{error}</div>}
+          <p className="field-msg error ellipsis" role={error ? 'alert' : undefined} title={error ?? undefined}>{error}</p>
           <div className="stack" style={{ gap: 8, marginTop: 4 }}>
             <button className="btn primary lg block" aria-busy={busy === 'submit'} disabled={!supplier || !lines.length || !!busy} onClick={() => save(true)}>
               <Send size={14} /><span>Save &amp; submit for approval</span>
@@ -228,6 +249,12 @@ export default function PurchaseOrderForm() {
           </div>
         </div>
       </aside>
+
+      {blocker.state === 'blocked' && (
+        <ConfirmDialog title="Leave without saving?" description="Your changes to this order will be lost." confirmLabel="Discard changes" tone="danger"
+          onConfirm={async () => { leaving.current = true; blocker.proceed(); }}
+          onClose={() => { if (!leaving.current) blocker.reset(); leaving.current = false; }} />
+      )}
     </div>
   );
 }

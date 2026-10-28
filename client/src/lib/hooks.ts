@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 
 // ── Stale-while-revalidate cache ─────────────────────────────────────────────
@@ -120,4 +121,21 @@ export function useFirstMount(ms = 1400) {
   const [first, setFirst] = useState(true);
   useEffect(() => { const t = setTimeout(() => setFirst(false), ms); return () => clearTimeout(t); }, [ms]);
   return first;
+}
+
+/**
+ * A filter value that lives in the URL, so back/forward and refresh keep it.
+ * Typing replaces the history entry; tab-style choices can push (`push: true`).
+ */
+export function useQueryState(key: string, fallback = '') {
+  const [params, setParams] = useSearchParams();
+  const value = params.get(key) ?? fallback;
+  const set = useCallback((next: string, opts?: { push?: boolean }) => {
+    setParams((prev) => {
+      const p = new URLSearchParams(prev);
+      if (!next || next === fallback) p.delete(key); else p.set(key, next);
+      return p;
+    }, { replace: !opts?.push, preventScrollReset: true });
+  }, [key, fallback, setParams]);
+  return [value, set] as const;
 }

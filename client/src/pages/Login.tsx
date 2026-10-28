@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Lock, PackageCheck, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Lock, PackageCheck, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { Avatar, RoleBadge } from '../components/ui';
+import { Avatar, Field, RoleBadge, useValidation } from '../components/ui';
 import { BrandMark } from '../components/Layout';
 import type { Role } from '../lib/types';
 
@@ -33,10 +33,17 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const v = useValidation({ email, password }, {
+    email: (x) => (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) ? 'Enter the email you sign in with' : null),
+    password: (x) => (!x ? 'Enter your password' : null),
+  });
+
   if (user) return <Navigate to="/" replace />;
 
   const submit = async (e?: FormEvent, creds?: { email: string; password: string }) => {
     e?.preventDefault();
+    if (busy) return;
+    if (!creds) { v.touchAll(); if (!v.valid) return; }
     setBusy(true);
     setError(null);
     try {
@@ -62,18 +69,16 @@ export default function Login() {
             Inventory and purchasing for Brew &amp; Co. Sign in to continue.
           </p>
 
-          <form onSubmit={submit} className="stack" style={{ gap: 14, marginTop: 28 }}>
-            <div className="field">
-              <label htmlFor="email">Email</label>
-              <input id="email" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" required />
-            </div>
-            <div className="field">
-              <label htmlFor="password">Password</label>
-              <input id="password" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
-            </div>
-            {error && <div className="callout red" style={{ padding: '10px 12px' }}><AlertTriangle size={16} /> {error}</div>}
-            <button className="btn primary lg block" disabled={busy}>
-              {busy ? <span className="spinner" /> : <>Sign in <ArrowRight size={15} /></>}
+          {/* Messages use each field's reserved line, so the centred form never moves. */}
+          <form onSubmit={submit} noValidate className="stack" style={{ gap: 8, marginTop: 28 }}>
+            <Field label="Email" htmlFor="email" error={v.error('email')}>
+              <input className="input" type="email" inputMode="email" autoComplete="username" value={email} onChange={(e) => { setEmail(e.target.value); setError(null); }} placeholder="you@company.com" {...v.bind('email', 'email')} />
+            </Field>
+            <Field label="Password" htmlFor="password" error={error ?? v.error('password')}>
+              <input className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => { setPassword(e.target.value); setError(null); }} placeholder="••••••••" {...v.bind('password', 'password')} />
+            </Field>
+            <button className="btn primary lg block" aria-busy={busy} disabled={busy}>
+              <span>Sign in</span> <ArrowRight size={15} />
             </button>
           </form>
 

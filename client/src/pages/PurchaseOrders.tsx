@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Eye, FileText, Plus } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { useApi, useSearchHotkey } from '../lib/hooks';
+import { useApi, useQueryState, useSearchHotkey } from '../lib/hooks';
 import type { POStatus, PurchaseOrder } from '../lib/types';
 import { fmtDate, fmtMoney0, relativeDay } from '../lib/format';
 import {
@@ -15,10 +15,12 @@ export default function PurchaseOrders() {
   const { can, user } = useAuth();
   const finance = can('finance:view');
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const tab = (params.get('status') as Tab) || 'all';
-  const [q, setQ] = useState('');
-  const [mine, setMine] = useState(false);
+  // Filters live in the URL: back/forward and refresh keep them.
+  const [status, setStatus] = useQueryState('status', 'all');
+  const tab = status as Tab;
+  const [q, setQ] = useQueryState('q');
+  const [mineParam, setMine] = useQueryState('mine');
+  const mine = mineParam === '1';
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchHotkey(searchRef);
   const { data, error, reload } = useApi<PurchaseOrder[]>('/purchase-orders');
@@ -45,7 +47,7 @@ export default function PurchaseOrders() {
 
       <div className="kpi-strip">
         {(['draft', 'pending', 'ordered', 'received'] as POStatus[]).map((s) => (
-          <button key={s} type="button" className="kpi-strip-button" onClick={() => setParams({ status: s })} aria-label={`Show ${s} orders`}>
+          <button key={s} type="button" className="kpi-strip-button" onClick={() => setStatus(s, { push: true })} aria-label={`Show ${s} orders`}>
             <POStatusPill status={s} />
             <div className="kpi-value" style={{ marginTop: 10 }}>
               {data ? count(s) : <Sk w={28} />}
@@ -63,7 +65,7 @@ export default function PurchaseOrders() {
           </div>
         )}
         <div className="toolbar">
-          <SegTabs<Tab> value={tab} onChange={(v) => setParams(v === 'all' ? {} : { status: v })} options={[
+          <SegTabs<Tab> value={tab} onChange={(v) => setStatus(v, { push: true })} options={[
             { value: 'all', label: 'All', count: data?.length ?? null },
             { value: 'draft', label: 'Drafts', count: count('draft') },
             { value: 'pending', label: 'Awaiting approval', count: count('pending') },
@@ -74,7 +76,7 @@ export default function PurchaseOrders() {
           <span className="grow" />
           {can('po:view_all') && (
             <label className="row muted" style={{ cursor: 'pointer' }}>
-              <span className="toggle"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} /><span /></span> Only mine
+              <span className="toggle"><input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked ? '1' : '')} /><span /></span> Only mine
             </label>
           )}
           <SearchInput ref={searchRef} value={q} onChange={setQ} placeholder="Search order or supplier" width={230} />

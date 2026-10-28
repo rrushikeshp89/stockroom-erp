@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/hooks';
 import type { Role, User } from '../lib/types';
 import { timeAgo } from '../lib/format';
-import { Avatar, ConfirmDialog, ErrorState, Modal, RoleBadge, Sk, SkeletonRows, useToast } from '../components/ui';
+import { Avatar, ConfirmDialog, ErrorState, Field, FootError, Modal, RoleBadge, Sk, SkeletonRows, useToast, useValidation } from '../components/ui';
 import RowMenu from '../components/RowMenu';
 import { PermissionMatrix } from './Access';
 
@@ -142,7 +142,14 @@ function AddUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
   const [f, setF] = useState({ name: '', email: '', title: '', role: 'staff' as Role, password: '' });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const v = useValidation(f, {
+    name: (x) => (x.trim().length < 2 ? 'Enter their full name' : null),
+    email: (x) => (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) ? 'Enter a valid email address' : null),
+    password: (x) => (x.length < 8 ? 'Use at least 8 characters' : null),
+  });
   const save = async () => {
+    v.touchAll();
+    if (!v.valid || busy) return;
     setBusy(true); setError(null);
     try {
       await api.post('/users', f);
@@ -152,16 +159,16 @@ function AddUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
   };
   return (
     <Modal title="Add teammate" description="They can sign in right away with the password you set." onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.name || !f.email || f.password.length < 8} onClick={save}>{busy && <span className="spinner" />} Add teammate</button></>}>
-      <div className="form-grid">
-        <div className="field"><label>Full name</label><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus /></div>
-        <div className="field"><label>Job title</label><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Barista" /></div>
-        <div className="field span-2"><label>Email</label><input className="input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
+      footer={<><FootError error={error} /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" aria-busy={busy} disabled={busy} onClick={save}><span>Add teammate</span></button></>}>
+      <form className="form-grid" noValidate onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <Field label="Full name" htmlFor="u-name" error={v.error('name')}><input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoFocus autoComplete="off" {...v.bind('name', 'u-name')} /></Field>
+        <Field label="Job title" htmlFor="u-title"><input id="u-title" className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Barista" /></Field>
+        <Field className="span-2" label="Email" htmlFor="u-email" error={v.error('email')}><input className="input" type="email" inputMode="email" autoComplete="off" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} {...v.bind('email', 'u-email')} /></Field>
         <div className="field span-2">
-          <label>Role</label>
-          <div className="stack" style={{ gap: 8 }}>
+          <span className="label" id="u-role">Role</span>
+          <div className="stack" style={{ gap: 8 }} role="radiogroup" aria-labelledby="u-role">
             {(['staff', 'manager', 'admin'] as Role[]).map((r) => (
-              <button key={r} type="button" className={`demo-account ${f.role === r ? 'selected' : ''}`} onClick={() => setF({ ...f, role: r })}>
+              <button key={r} type="button" role="radio" aria-checked={f.role === r} className={`demo-account ${f.role === r ? 'selected' : ''}`} onClick={() => setF({ ...f, role: r })}>
                 <RoleBadge role={r} />
                 <span className="muted" style={{ fontSize: 12.5 }}>
                   {r === 'staff' ? 'Requests stock, receives deliveries assigned to them. No prices.' : r === 'manager' ? 'Approves, receives and manages products & suppliers.' : 'Everything, including team and roles.'}
@@ -170,9 +177,11 @@ function AddUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
             ))}
           </div>
         </div>
-        <div className="field span-2"><label>Temporary password</label><input className="input" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /><span className="hint">At least 8 characters.</span></div>
-      </div>
-      {error && <div className="callout red" style={{ marginTop: 16 }}>{error}</div>}
+        <Field className="span-2" label="Temporary password" htmlFor="u-pw" error={v.error('password')} hint="At least 8 characters.">
+          <input className="input" type="password" autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} {...v.bind('password', 'u-pw')} />
+        </Field>
+        <button type="submit" hidden />
+      </form>
     </Modal>
   );
 }
@@ -180,13 +189,18 @@ function AddUser({ onClose, onSaved }: { onClose: () => void; onSaved: () => voi
 function ResetPassword({ user, onClose }: { user: User; onClose: () => void }) {
   const toast = useToast();
   const [pw, setPw] = useState('');
+  const v = useValidation({ pw }, { pw: (x) => (x.length < 8 ? 'Use at least 8 characters' : null) });
   return (
     <ConfirmDialog title={`Reset password for ${user.name}`} confirmLabel="Set password" onClose={onClose}
       onConfirm={async () => {
+        v.touchAll();
+        if (!v.valid) throw new Error('Use at least 8 characters');
         await api.patch(`/users/${user.id}`, { password: pw });
         toast({ kind: 'success', title: 'Password updated', body: user.email });
       }}>
-      <div className="field"><label>New password</label><input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus /><span className="hint">At least 8 characters.</span></div>
+      <Field label="New password" htmlFor="reset-pw" error={v.error('pw')} hint="At least 8 characters.">
+        <input className="input" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus {...v.bind('pw', 'reset-pw')} />
+      </Field>
     </ConfirmDialog>
   );
 }
