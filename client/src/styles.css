@@ -4,6 +4,24 @@
    divided by hairlines, uppercase micro-labels, vivid green reserved for data.
    ───────────────────────────────────────────────────────────────────────────── */
 
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-var-latin.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Arial tuned to Inter's metrics, so the swap doesn't reflow text. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial'), local('Helvetica');
+  ascent-override: 90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+  size-adjust: 107.06%;
+}
+
 :root {
   --canvas: #e8ebe7;
   --surface: #ffffff;
@@ -39,8 +57,18 @@
   --shadow-pop: 0 1px 2px rgba(21, 21, 21, 0.06), 0 16px 40px -8px rgba(21, 21, 21, 0.16);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
-  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Motion tokens: one enter curve, one exit curve, three durations. */
+  --dur-micro: 120ms;
+  --dur: 180ms;
+  --dur-panel: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --font: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/* The page always reserves the scrollbar's space, so content loading in never shifts it sideways. */
+html { scrollbar-gutter: stable; }
 
 *,
 *::before,
@@ -57,6 +85,8 @@ body {
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'cv11', 'ss01';
+  /* Every number is tabular, so values changing never change width. */
+  font-variant-numeric: tabular-nums;
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -336,8 +366,11 @@ h1, h2, h3, h4, p { margin: 0; }
 .kpi:first-child { padding-left: 0; border-left: 0; }
 .kpi:last-child { padding-right: 0; }
 .kpi .label { display: block; margin-bottom: 6px; }
-.kpi-value { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 7px; }
-.kpi-value.lg { font-size: 22px; }
+.kpi-value {
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: baseline; gap: 7px;
+  line-height: 24px; height: 24px; min-width: 0; white-space: nowrap;
+}
+.kpi-value.lg { font-size: 22px; line-height: 30px; height: 30px; }
 .delta { display: inline-flex; align-items: center; gap: 1px; font-size: 11.5px; font-weight: 500; }
 .delta.up { color: var(--green-ink); }
 .delta.down { color: var(--red-ink); }
@@ -345,7 +378,12 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); }
 .kpi-strip > div { padding: 18px 32px; border-left: 1px solid var(--line); }
-.kpi-strip > div:first-child { border-left: 0; }
+.kpi-strip > div:first-child, .kpi-strip > button:first-child { border-left: 0; }
+.kpi-strip-button {
+  display: block; padding: 18px 32px; border: 0; border-left: 1px solid var(--line); background: none;
+  text-align: left; font: inherit; color: inherit; cursor: pointer; transition: background var(--dur-micro) var(--ease-out);
+}
+.kpi-strip-button:hover { background: var(--surface-2); }
 
 /* ── Tables ───────────────────────────────────────────────────────────────── */
 
@@ -367,6 +405,12 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .table-wrap { overflow-x: auto; margin: 0 -8px; }
 .table { width: 100%; border-collapse: collapse; }
+/* Fixed layout: column widths come from <colgroup>, never from the rows on screen,
+   so tab switches and pagination can't re-flow columns. */
+.table.fixed { table-layout: fixed; }
+.table.fixed td, .table.fixed th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table.fixed td > .cell-main, .table.fixed td > div { min-width: 0; }
+.table.fixed td .strong, .table.fixed td .sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table th {
   text-align: left; font-weight: 600; font-size: 12.5px; color: var(--ink);
   padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap;
@@ -442,23 +486,22 @@ h1, h2, h3, h4, p { margin: 0; }
 .bar-strip .bar:hover { opacity: 1; }
 .bar.low { background: var(--lime); }
 .bar.out { background: var(--red); }
-.bar-strip .marker {
-  position: absolute; top: -12px; width: 0; height: 0;
+/* Markers ride on a full-width track moved with translateX(%), so position changes animate on the compositor. */
+.marker-track { position: absolute; left: 0; width: 100%; height: 0; pointer-events: none; transition: transform var(--dur-panel) var(--ease-out); }
+.bar-strip .marker-track { top: -12px; }
+.bar-strip .marker, .gauge-marker {
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
   border-left: 4.5px solid transparent; border-right: 4.5px solid transparent; border-top: 6px solid var(--ink);
   transform: translateX(-50%);
 }
 
 .gauge { width: 100%; position: relative; padding-top: 14px; }
+.gauge .marker-track { top: 0; }
 .gauge-track { display: flex; gap: 2px; height: 7px; border-radius: 2px; overflow: hidden; }
 .gauge-track span { flex: 1; }
-.gauge-marker {
-  position: absolute; top: 0; width: 0; height: 0; transform: translateX(-50%);
-  border-left: 4.5px solid transparent; border-right: 4.5px solid transparent; border-top: 6px solid var(--ink);
-  transition: left 0.8s var(--ease);
-}
 
 .seg-bar { display: flex; gap: 3px; height: 7px; }
-.seg-bar span { border-radius: 2px; min-width: 3px; transition: flex-grow 0.6s var(--ease); }
+.seg-bar span { border-radius: 2px; min-width: 3px; }
 
 .split-kpis { display: flex; }
 .split-kpis > div {
@@ -468,17 +511,21 @@ h1, h2, h3, h4, p { margin: 0; }
 .split-kpis > div:first-child { border-left: 0; padding-left: 0; }
 .split-kpis .pct { color: var(--muted); font-size: 12px; margin-top: 18px; }
 
-.chart-wrap { position: relative; }
-.chart-wrap svg { display: block; width: 100%; overflow: visible; }
+.chart-wrap { position: relative; width: 100%; }
+.chart-wrap svg { display: block; overflow: visible; }
 .chart-axis { font-size: 10.5px; fill: var(--faint); font-family: var(--font); }
 .chart-tip {
-  position: absolute; pointer-events: none; z-index: 5;
+  position: absolute; left: 0; top: 0; pointer-events: none; z-index: 5;
   min-width: 190px; padding: 12px 14px;
   background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(6px);
   border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-pop);
   font-size: 12.5px;
-  transition: left 0.08s linear, top 0.08s linear;
+  transition: transform var(--dur-micro) var(--ease-out);
 }
+.chart-wrap .series { transition: opacity var(--dur) var(--ease-out); }
+/* First-mount entrances only (components drop these classes after mount). */
+.draw-in { stroke-dasharray: 1; animation: draw 1.1s var(--ease-out) both; }
+.grow-in { transform-box: fill-box; transform-origin: bottom; animation: grow 0.6s var(--ease-out) both; }
 .chart-tip .tip-date { font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
 .chart-tip .tip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 2px 0; }
 .chart-tip .tip-row span:first-child { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-2); }
@@ -704,6 +751,61 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .lock-note { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 
+/* ── Stability helpers ────────────────────────────────────────────────────── */
+
+/* Inline text placeholder: same line box as the text it stands in for. */
+.sk {
+  display: inline-block; height: 0.9em; width: var(--w, 4em); vertical-align: -0.1em; border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface-2), var(--surface-3), var(--surface-2));
+  background-size: 200% 100%; animation: shimmer 1.2s infinite linear;
+}
+/* Content being refetched stays mounted, just quieter. */
+.is-refreshing { opacity: 0.55; transition: opacity 120ms ease-out; pointer-events: none; }
+
+/* Busy buttons keep their width: the label goes invisible and a spinner sits on top. */
+.btn[aria-busy='true'] { position: relative; color: transparent !important; pointer-events: none; }
+.btn[aria-busy='true'] > * { visibility: hidden; }
+.btn[aria-busy='true']::after {
+  content: ''; position: absolute; inset: 0; margin: auto; width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid var(--spin, var(--ink)); border-right-color: transparent; animation: spin 0.7s linear infinite;
+}
+.btn.primary, .btn.green { --spin: #fff; }
+.select[aria-busy='true'] { opacity: 0.6; pointer-events: none; }
+.btn.danger-fill { background: var(--red-ink); border-color: var(--red-ink); color: #fff; --spin: #fff; }
+.btn.danger-fill:hover { background: #ad2245; }
+
+.foot-error {
+  margin-right: auto; min-width: 0; display: inline-flex; align-items: center; gap: 6px;
+  color: var(--red-ink); font-size: 12.5px; font-weight: 500;
+}
+
+/* Paged tables keep a full page of height: blank filler rows, never a border or hover. */
+.table tr.filler td { height: 51px; border-bottom: 0; padding: 0; }
+.table tbody tr.filler:hover { background: transparent; }
+.table td.actions { overflow: visible; }
+
+.viz-sk { display: block; width: 100%; height: 40px; }
+.cell-button {
+  display: block; max-width: 100%; padding: 0; border: 0; background: none; font: inherit; color: var(--ink); font-weight: 500;
+  text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cell-button:hover { text-decoration: underline; text-underline-offset: 2px; }
+.list-button { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.list-button:last-child { border-bottom: 0; }
+.reorder-row { min-height: 61px; }
+.activity-row { min-height: 57px; }
+.activity-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-2); flex: none; }
+.activity-who { min-width: 190px; }
+.activity-when { font-size: 12px; min-width: 110px; text-align: right; }
+.row-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.text-link { display: inline-block; font-size: 12.5px; }
+
+.error-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center;
+  padding: 40px 20px; color: var(--muted);
+}
+.error-state h3 { color: var(--ink); font-size: 15px; font-weight: 600; }
+
 .change-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .change-list > div { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .change-list > div:last-child { border-bottom: 0; }
@@ -715,7 +817,7 @@ h1, h2, h3, h4, p { margin: 0; }
 @keyframes slide { from { opacity: 0; transform: translateX(24px); } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes draw { from { stroke-dashoffset: var(--len, 2000); } to { stroke-dashoffset: 0; } }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
@@ -746,3 +848,6 @@ h1, h2, h3, h4, p { margin: 0; }
   .login-art { display: none; }
   .totals { width: 100%; }
 }
+
+.supplier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+.supplier-grid .demo-account { min-height: 54px; }

@@ -1,6 +1,6 @@
 import { createContext, forwardRef, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, RotateCw, Search, X } from 'lucide-react';
 import type { POStatus, Role, StockStatus } from '../lib/types';
 import { initials } from '../lib/format';
 
@@ -64,30 +64,34 @@ export const SearchInput = forwardRef<HTMLInputElement, { value: string; onChang
 );
 
 export function SegTabs<T extends string>({ value, onChange, options }: {
-  value: T; onChange: (v: T) => void; options: { value: T; label: string; count?: number }[];
+  value: T; onChange: (v: T) => void; options: { value: T; label: string; count?: number | null }[];
 }) {
   return (
     <div className="seg-tabs" role="tablist">
       {options.map((o) => (
         <button key={o.value} role="tab" aria-selected={value === o.value} className={value === o.value ? 'active' : ''} onClick={() => onChange(o.value)}>
           {o.label}
-          {o.count != null && <span className="n num">{o.count}</span>}
+          {o.count !== undefined && <span className="n">{o.count ?? <Sk w="1.2em" />}</span>}
         </button>
       ))}
     </div>
   );
 }
 
-export function Pagination({ page, pages, onPage, pageSize, onPageSize, total }: {
-  page: number; pages: number; onPage: (p: number) => void; pageSize: number; onPageSize: (n: number) => void; total: number;
+export function Pagination({ page, pages, onPage, pageSize, onPageSize, total, sizes = [10, 20, 50] }: {
+  page: number; pages: number; onPage: (p: number) => void; pageSize: number; onPageSize: (n: number) => void; total: number; sizes?: number[];
 }) {
   return (
     <div className="table-foot">
       <div className="row">
-        Show by
-        <select className="select sm" style={{ width: 64 }} value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
-          {[8, 10, 20, 50].map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
+        {sizes.length > 1 ? (
+          <label className="row">
+            Show by
+            <select className="select sm" style={{ width: 68 }} value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
+              {sizes.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        ) : <span>{pageSize} per page</span>}
         <span className="hide-sm">· {total} total</span>
       </div>
       <div className="pager">
@@ -176,10 +180,12 @@ export function ConfirmDialog({ title, description, confirmLabel, tone = 'primar
   return (
     <Modal title={title} description={description} onClose={onClose} footer={
       <>
+        {/* Errors live in the footer row, so the dialog never changes height. */}
+        <FootError error={error} />
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className={`btn ${tone === 'danger' ? 'primary' : tone}`} style={tone === 'danger' ? { background: 'var(--red)', borderColor: 'var(--red)' } : undefined}
+        <button className={`btn ${tone === 'danger' ? 'danger-fill' : tone}`} aria-busy={busy}
           disabled={busy || (requireNote && !note.trim())} onClick={go}>
-          {busy && <span className="spinner" />} {confirmLabel}
+          <span>{confirmLabel}</span>
         </button>
       </>
     }>
@@ -187,13 +193,20 @@ export function ConfirmDialog({ title, description, confirmLabel, tone = 'primar
         {children}
         {notePlaceholder !== undefined && (
           <div className="field">
-            <label>{requireNote ? 'Reason' : 'Note (optional)'}</label>
-            <textarea className="textarea" value={note} placeholder={notePlaceholder} onChange={(e) => setNote(e.target.value)} autoFocus />
+            <label htmlFor="confirm-note">{requireNote ? 'Reason' : 'Note (optional)'}</label>
+            <textarea id="confirm-note" className="textarea" value={note} placeholder={notePlaceholder} onChange={(e) => setNote(e.target.value)} autoFocus />
           </div>
         )}
-        {error && <div className="callout red"><AlertTriangle size={16} /> {error}</div>}
       </div>
     </Modal>
+  );
+}
+
+export function FootError({ error }: { error: string | null }) {
+  return (
+    <span className="foot-error" role={error ? 'alert' : undefined} title={error ?? undefined}>
+      {error && <><AlertTriangle size={14} /> <span className="ellipsis">{error}</span></>}
+    </span>
   );
 }
 
@@ -249,13 +262,50 @@ export function Skeleton({ h = 16, w = '100%', style }: { h?: number; w?: number
   return <div className="skeleton" style={{ height: h, width: w, ...style }} />;
 }
 
-export function PageSkeleton() {
+/** Inline text placeholder that occupies the same line box as the text it replaces. */
+export const Sk = ({ w = '4em' }: { w?: string | number }) => (
+  <span className="sk" style={{ ['--w' as string]: typeof w === 'number' ? `${w}px` : w }} aria-hidden="true" />
+);
+
+/** Loading rows that use the real table's columns and row height. */
+export function SkeletonRows({ cols, rows }: { cols: (string | number)[]; rows: number }) {
   return (
-    <div className="section stack" style={{ gap: 14 }}>
-      <Skeleton h={28} w={240} />
-      <Skeleton h={14} w={380} />
-      <div style={{ height: 12 }} />
-      {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} h={40} />)}
+    <>
+      {Array.from({ length: rows }, (_, r) => (
+        <tr key={`sk${r}`} aria-hidden="true">
+          {cols.map((w, c) => <td key={c}>{w ? <Sk w={w} /> : null}</td>)}
+        </tr>
+      ))}
+    </>
+  );
+}
+
+/**
+ * Blank rows that pad a paged table to its full page height, so switching tabs or
+ * pages never changes the panel's height (and nothing below it moves).
+ */
+export function FillerRows({ count, cols }: { count: number; cols: number }) {
+  return <>{Array.from({ length: Math.max(0, count) }, (_, i) => <tr key={`f${i}`} className="filler" aria-hidden="true"><td colSpan={cols} /></tr>)}</>;
+}
+
+/** Empty state rendered inside a table body, keeping the table's reserved height. */
+export function TableEmpty({ cols, rows, children }: { cols: number; rows: number; children: ReactNode }) {
+  return (
+    <tr className="filler">
+      <td colSpan={cols} style={{ height: rows * 51, whiteSpace: 'normal' }}>{children}</td>
+    </tr>
+  );
+}
+
+export function ErrorState({ message, onRetry, compact }: { message: string; onRetry: () => void; compact?: boolean }) {
+  return (
+    <div className="error-state" role="alert" style={compact ? { padding: '20px 0' } : undefined}>
+      <div className="glyph" style={{ width: 40, height: 40, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'var(--red-soft)', color: 'var(--red-ink)' }}>
+        <AlertTriangle size={18} />
+      </div>
+      <h3>Couldn't load this</h3>
+      <p style={{ maxWidth: 360 }}>{message}</p>
+      <button className="btn" onClick={onRetry}><RotateCw size={14} /> Try again</button>
     </div>
   );
 }

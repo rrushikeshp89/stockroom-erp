@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/hooks';
 import type { Person, Product, PurchaseOrder, Supplier } from '../lib/types';
 import { fmtMoney } from '../lib/format';
-import { Empty, PageSkeleton, StockPill, SupplierLogo, useToast } from '../components/ui';
+import { Empty, Sk, StockPill, SupplierLogo, useToast } from '../components/ui';
 
 interface Line { product_id: number; quantity: number; unit_cost?: number }
 
@@ -55,7 +55,7 @@ export default function PurchaseOrderForm() {
     }
   }, [supplier, editing]);
 
-  if (!suppliers || !products || (editing && !existing)) return <PageSkeleton />;
+  if (!suppliers || !products || (editing && !existing)) return <FormSkeleton editing={editing} />;
   if (existing && !existing.allowed_actions.includes('edit')) {
     return (
       <div className="section" style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
@@ -104,7 +104,7 @@ export default function PurchaseOrderForm() {
 
         <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
           <span className="label">Supplier</span>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, marginTop: 10 }}>
+          <div className="supplier-grid">
             {suppliers.map((s) => (
               <button key={s.id} type="button" className={`demo-account ${supplierId === s.id ? 'selected' : ''}`} onClick={() => changeSupplier(s.id)}>
                 <SupplierLogo name={s.name} color={s.color} size={30} />
@@ -214,6 +214,37 @@ export default function PurchaseOrderForm() {
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+/** Same sections and card sizes as the form, so nothing moves when suppliers and products arrive. */
+function FormSkeleton({ editing }: { editing: boolean }) {
+  return (
+    <div className="hairline detail" aria-busy="true">
+      <div>
+        <div className="section">
+          <span className="crumb"><Sk w={110} /></span>
+          <h1 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em' }}>{editing ? 'Edit draft order' : 'New purchase order'}</h1>
+          <p className="muted" style={{ marginTop: 5 }}>Ordering doesn't change stock. Inventory increases only when the delivery is marked received.</p>
+        </div>
+        <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
+          <span className="label">Supplier</span>
+          <div className="supplier-grid">
+            {Array.from({ length: 7 }, (_, i) => (
+              <div key={i} className="demo-account" aria-hidden="true">
+                <span className="skeleton" style={{ width: 30, height: 30, borderRadius: 7 }} />
+                <div style={{ minWidth: 0 }}><div><Sk w={110} /></div><div style={{ fontSize: 11.5 }}><Sk w={90} /></div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="section-head" style={{ marginBottom: 12 }}><h2 className="section-title" style={{ fontSize: 16 }}>Line items</h2></div>
+          <p className="muted" style={{ padding: '20px 0' }}>Choose a supplier to see what you can order from them.</p>
+        </div>
+      </div>
+      <aside><div className="section"><h2 className="section-title" style={{ fontSize: 16 }}>Delivery</h2></div></aside>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/hooks';
 import type { Person, POAction, PurchaseOrder } from '../lib/types';
 import { fmtDate, fmtDateTime, fmtMoney, relativeDay } from '../lib/format';
-import { Avatar, ConfirmDialog, Empty, PageSkeleton, POStatusPill, SupplierLogo, useToast } from '../components/ui';
+import { Avatar, ConfirmDialog, Empty, ErrorState, POStatusPill, Sk, SkeletonRows, SupplierLogo, useToast } from '../components/ui';
 
 const STEPS = [
   { key: 'draft', label: 'Draft' },
@@ -28,20 +28,23 @@ export default function PurchaseOrderDetail() {
   const toast = useToast();
   const { can, user } = useAuth();
   const finance = can('finance:view');
-  const { data: po, error, setData } = useApi<PurchaseOrder>(`/purchase-orders/${id}`);
+  const { data: po, error, setData, reload } = useApi<PurchaseOrder>(`/purchase-orders/${id}`);
   const { data: people } = useApi<Person[]>(can('po:assign') ? '/meta/people' : null);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [assigning, setAssigning] = useState(false);
 
-  if (error) {
+  if (error && !po) {
     return (
       <div className="section" style={{ flex: 1, display: 'grid', placeItems: 'center' }}>
-        <Empty icon={<Lock size={20} />} title="Order not found" action={<Link className="btn" to="/purchase-orders">Back to orders</Link>}>
-          It doesn't exist, or it's outside what your role can see.
-        </Empty>
+        {/not found/i.test(error) ? (
+          <Empty icon={<Lock size={20} />} title="Order not found" action={<Link className="btn" to="/purchase-orders">Back to orders</Link>}>
+            It doesn't exist, or it's outside what your role can see.
+          </Empty>
+        ) : <ErrorState message={error} onRetry={reload} />}
       </div>
     );
   }
-  if (!po) return <PageSkeleton />;
+  if (!po) return <DetailSkeleton />;
 
   const allowed = (a: POAction) => po.allowed_actions.includes(a);
   const act = (action: string, success: string) => async (note: string) => {
@@ -65,10 +68,16 @@ export default function PurchaseOrderDetail() {
   if (po.status === 'pending' && !can('po:approve')) blockers.push('Waiting for a manager to approve.');
 
   const assign = async (assigned_to: number | null) => {
+    if (assigning) return;
+    setAssigning(true);
     try {
       setData(await api.post<PurchaseOrder>(`/purchase-orders/${po.id}/assign`, { assigned_to }));
       toast({ kind: 'success', title: 'Receiver updated' });
-    } catch (e) { toast({ kind: 'error', title: 'Could not reassign', body: (e as Error).message }); }
+    } catch (e) {
+      toast({ kind: 'error', title: 'Could not reassign', body: (e as Error).message });
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -188,10 +197,14 @@ export default function PurchaseOrderDetail() {
             <dt>Requested by</dt><dd><Avatar name={po.created_by_name} size="xs" /> {po.created_by_name}</dd>
             <dt>Receiver</dt>
             <dd>
-              {allowed('assign') && people ? (
-                <select className="select sm" value={po.assigned_to ?? ''} onChange={(e) => assign(e.target.value ? Number(e.target.value) : null)}>
+              {allowed('assign') ? (
+                // Same control before and after the people list arrives: no swap from text to select.
+                <select className="select sm" value={po.assigned_to ?? ''} aria-label="Receiver" aria-busy={assigning}
+                  disabled={!people || assigning} onChange={(e) => assign(e.target.value ? Number(e.target.value) : null)}>
                   <option value="">Unassigned</option>
-                  {people.map((p) => <option key={p.id} value={p.id}>{p.name}{p.id === user?.id ? ' (you)' : ''}</option>)}
+                  {(people ?? (po.assigned_to ? [{ id: po.assigned_to, name: po.assigned_to_name ?? '' }] : [])).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.id === user?.id ? ' (you)' : ''}</option>
+                  ))}
                 </select>
               ) : po.assigned_to_name ? <><Avatar name={po.assigned_to_name} size="xs" /> {po.assigned_to_name}</> : <span className="muted">Unassigned</span>}
             </dd>
@@ -237,6 +250,43 @@ export default function PurchaseOrderDetail() {
           </div>
         </ConfirmDialog>
       )}
+    </div>
+  );
+}
+
+/** Mirrors the detail layout (header, stepper, lines, details, timeline) so content lands in place. */
+function DetailSkeleton() {
+  return (
+    <div className="hairline detail" aria-busy="true">
+      <div>
+        <div className="section">
+          <span className="crumb"><Sk w={110} /></span>
+          <div className="row" style={{ gap: 14 }}>
+            <span className="skeleton" style={{ width: 44, height: 44, borderRadius: 10 }} />
+            <div>
+              <div style={{ fontSize: 24, lineHeight: '29px' }}><Sk w={180} /></div>
+              <p style={{ marginTop: 3 }}><Sk w={280} /></p>
+            </div>
+          </div>
+          <div className="stepper" style={{ marginTop: 26, height: 20 }}><Sk w={360} /></div>
+        </div>
+        <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="section-head" style={{ marginBottom: 10 }}><h2 className="section-title" style={{ fontSize: 16 }}>Line items</h2></div>
+          <div className="table-wrap">
+            <table className="table fixed"><tbody><SkeletonRows rows={3} cols={['60%', 60, 80]} /></tbody></table>
+          </div>
+        </div>
+      </div>
+      <aside>
+        <div className="section">
+          <h2 className="section-title" style={{ fontSize: 16, marginBottom: 18 }}>Details</h2>
+          <dl className="dl">{Array.from({ length: 6 }, (_, i) => [<dt key={`t${i}`}><Sk w={70} /></dt>, <dd key={`d${i}`}><Sk w={130} /></dd>])}</dl>
+        </div>
+        <div className="section" style={{ borderTop: '1px solid var(--line)' }}>
+          <h2 className="section-title" style={{ fontSize: 16, marginBottom: 18 }}>Timeline</h2>
+          {[0, 1, 2].map((i) => <div key={i} style={{ padding: '0 0 18px 26px' }}><Sk w={150} /><div><Sk w={110} /></div></div>)}
+        </div>
+      </aside>
     </div>
   );
 }

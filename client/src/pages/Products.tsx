@@ -7,7 +7,7 @@ import { useApi, useSearchHotkey } from '../lib/hooks';
 import type { Movement, Product, Supplier } from '../lib/types';
 import { fmtDateTime, fmtMoney, fmtMoney0, fmtNum } from '../lib/format';
 import {
-  ConfirmDialog, Drawer, Empty, Modal, PageSkeleton, Pagination, SearchInput, SegTabs, StockPill, SupplierLogo, usePaged, useToast,
+  ConfirmDialog, Drawer, Empty, ErrorState, FillerRows, Modal, Pagination, SearchInput, SegTabs, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, usePaged, useToast,
 } from '../components/ui';
 import RowMenu from '../components/RowMenu';
 
@@ -16,7 +16,7 @@ type Filter = 'all' | 'attention' | 'ok';
 export default function Products() {
   const { can } = useAuth();
   const finance = can('finance:view');
-  const { data: products, reload } = useApi<Product[]>('/products');
+  const { data: products, error, reload } = useApi<Product[]>('/products');
   const [params, setParams] = useSearchParams();
   const filter = (params.get('status') as Filter) || 'all';
   const [category, setCategory] = useState('');
@@ -37,11 +37,11 @@ export default function Products() {
     (!q || `${p.name} ${p.sku} ${p.supplier_name}`.toLowerCase().includes(q.toLowerCase()))), [products, filter, category, q]);
   const { slice, props } = usePaged(rows, 10);
 
-  if (!products) return <PageSkeleton />;
-
-  const attention = products.filter((p) => p.status !== 'ok').length;
-  const value = products.reduce((s, p) => s + (p.stock_value ?? 0), 0);
-  const onOrder = products.reduce((s, p) => s + p.on_order, 0);
+  const attention = products?.filter((p) => p.status !== 'ok').length ?? 0;
+  const value = products?.reduce((s, p) => s + (p.stock_value ?? 0), 0) ?? 0;
+  const onOrder = products?.reduce((s, p) => s + p.on_order, 0) ?? 0;
+  const cols = finance ? ['22%', '9%', '15%', '15%', '7%', '7%', '8%', '7%', '10%', 52] : ['26%', '11%', '17%', '17%', '8%', '8%', '13%', 52];
+  const kpi = (v: React.ReactNode) => (products ? v : <Sk w={40} />);
 
   return (
     <>
@@ -58,21 +58,21 @@ export default function Products() {
       </div>
 
       <div className="kpi-strip">
-        <div><span className="label">Active SKUs</span><div className="kpi-value num" style={{ marginTop: 6 }}>{products.length}</div></div>
-        <div><span className="label">Low stock</span><div className="kpi-value num" style={{ marginTop: 6 }}>{products.filter((p) => p.status === 'low').length}</div></div>
-        <div><span className="label">Out of stock</span><div className="kpi-value num" style={{ marginTop: 6, color: 'var(--red-ink)' }}>{products.filter((p) => p.status === 'out').length}</div></div>
+        <div><span className="label">Active SKUs</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(products?.length)}</div></div>
+        <div><span className="label">Low stock</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(products?.filter((p) => p.status === 'low').length)}</div></div>
+        <div><span className="label">Out of stock</span><div className="kpi-value" style={{ marginTop: 6, color: 'var(--red-ink)' }}>{kpi(products?.filter((p) => p.status === 'out').length)}</div></div>
         <div>
           <span className="label">{finance ? 'Stock value' : 'Units on order'}</span>
-          <div className="kpi-value num" style={{ marginTop: 6 }}>{finance ? fmtMoney0(value) : fmtNum(onOrder)}</div>
+          <div className="kpi-value" style={{ marginTop: 6 }}>{kpi(finance ? fmtMoney0(value) : fmtNum(onOrder))}</div>
         </div>
       </div>
 
       <section className="section" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="toolbar">
           <SegTabs<Filter> value={filter} onChange={(v) => setParams(v === 'all' ? {} : { status: v })} options={[
-            { value: 'all', label: 'All', count: products.length },
-            { value: 'attention', label: 'Needs attention', count: attention },
-            { value: 'ok', label: 'Healthy', count: products.length - attention },
+            { value: 'all', label: 'All', count: products?.length ?? null },
+            { value: 'attention', label: 'Needs attention', count: products ? attention : null },
+            { value: 'ok', label: 'Healthy', count: products ? products.length - attention : null },
           ]} />
           <span className="grow" />
           <select className="select" style={{ width: 160, height: 32 }} value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
@@ -82,66 +82,74 @@ export default function Products() {
           <SearchInput ref={searchRef} value={q} onChange={setQ} placeholder="Search name, SKU, supplier" width={240} />
         </div>
 
-        {rows.length === 0 ? (
-          <Empty icon={<Package size={20} />} title="No products match">Clear the filters or search for something else.</Empty>
-        ) : (
+        {error && !products ? <ErrorState message={error} onRetry={reload} /> : (
           <>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table fixed" style={{ minWidth: finance ? 980 : 820 }}>
+                <colgroup>{cols.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
                 <thead>
                   <tr>
                     <th>Product</th>
-                    <th className="hide-sm">Category</th>
-                    <th className="hide-sm">Supplier</th>
+                    <th>Category</th>
+                    <th>Supplier</th>
                     <th>On hand</th>
-                    <th className="num hide-sm">Reorder at</th>
-                    <th className="num hide-sm">On order</th>
+                    <th className="num">Reorder at</th>
+                    <th className="num">On order</th>
                     {finance && <th className="num">Unit cost</th>}
-                    {finance && <th className="num hide-sm">Value</th>}
+                    {finance && <th className="num">Value</th>}
                     <th>Status</th>
-                    <th style={{ width: 40 }} />
+                    <th aria-label="Actions" />
                   </tr>
                 </thead>
-                <tbody>
-                  {slice.map((p) => {
-                    const max = Math.max(p.reorder_point * 2, p.stock, 1);
-                    return (
-                      <tr key={p.id} className="clickable" onClick={() => setViewing(p.id)}>
-                        <td>
-                          <div className="strong">{p.name}</div>
-                          <div className="sub num">{p.sku}</div>
-                        </td>
-                        <td className="hide-sm"><span className="tag">{p.category}</span></td>
-                        <td className="hide-sm">
-                          <div className="cell-main"><SupplierLogo name={p.supplier_name} color={p.supplier_color} size={22} /><span className="ellipsis" style={{ maxWidth: 140 }}>{p.supplier_name ?? '—'}</span></div>
-                        </td>
-                        <td>
-                          <div className="row" style={{ gap: 12 }}>
-                            <span className="num strong" style={{ minWidth: 28, textAlign: 'right' }}>{p.stock}</span>
-                            <span className={`meter ${p.status === 'ok' ? '' : p.status}`} title={`Reorder point ${p.reorder_point}`}>
-                              <span style={{ width: `${(p.stock / max) * 100}%` }} />
-                              <i style={{ left: `${(p.reorder_point / max) * 100}%` }} />
-                            </span>
-                            <span className="muted hide-sm" style={{ fontSize: 12 }}>{p.unit}s</span>
-                          </div>
-                        </td>
-                        <td className="num hide-sm">{p.reorder_point}</td>
-                        <td className="num hide-sm">{p.on_order ? <span className="strong">{p.on_order}</span> : <span className="muted">—</span>}</td>
-                        {finance && <td className="num">{fmtMoney(p.unit_cost)}</td>}
-                        {finance && <td className="num hide-sm strong">{fmtMoney0(p.stock_value)}</td>}
-                        <td><StockPill status={p.status} /></td>
-                        <td className="right">
-                          <RowMenu items={[
-                            { label: 'Record usage', icon: <Minus size={15} />, onClick: () => setStockFor({ product: p, type: 'usage' }), hidden: !can('stock:record_usage') },
-                            { label: 'Record waste', icon: <Trash2 size={15} />, onClick: () => setStockFor({ product: p, type: 'waste' }), hidden: !can('stock:record_usage') },
-                            { label: 'Stock count correction', icon: <ClipboardCheck size={15} />, onClick: () => setStockFor({ product: p, type: 'adjustment' }), hidden: !can('stock:adjust') },
-                            { label: 'Edit product', icon: <Pencil size={15} />, onClick: () => setEditing(p), hidden: !can('products:manage') },
-                            { label: 'Archive', icon: <Archive size={15} />, onClick: () => setArchiving(p), danger: true, hidden: !can('products:delete') },
-                          ]} />
-                        </td>
-                      </tr>
-                    );
-                  })}
+                <tbody key={`${filter}|${category}|${q}|${props.page}|${props.pageSize}`}>
+                  {!products ? <SkeletonRows rows={10} cols={finance ? ['70%', 50, '70%', 110, 20, 20, 40, 40, 70, 0] : ['70%', 50, '70%', 110, 20, 20, 70, 0]} /> : rows.length === 0 ? (
+                    <TableEmpty cols={cols.length} rows={10}>
+                      <Empty icon={<Package size={20} />} title="No products match">Clear the filters or search for something else.</Empty>
+                    </TableEmpty>
+                  ) : (
+                    <>
+                      {slice.map((p) => {
+                        const max = Math.max(p.reorder_point * 2, p.stock, 1);
+                        return (
+                          <tr key={p.id} className="clickable" onClick={() => setViewing(p.id)}>
+                            <td>
+                              <button type="button" className="cell-button strong" title={p.name} onClick={(e) => { e.stopPropagation(); setViewing(p.id); }}>{p.name}</button>
+                              <div className="sub">{p.sku}</div>
+                            </td>
+                            <td><span className="tag">{p.category}</span></td>
+                            <td>
+                              <div className="cell-main"><SupplierLogo name={p.supplier_name} color={p.supplier_color} size={22} /><span className="ellipsis" title={p.supplier_name ?? undefined}>{p.supplier_name ?? '—'}</span></div>
+                            </td>
+                            <td>
+                              <div className="row" style={{ gap: 12 }}>
+                                <span className="strong" style={{ minWidth: 28, textAlign: 'right' }}>{p.stock}</span>
+                                <span className={`meter ${p.status === 'ok' ? '' : p.status}`} title={`Reorder point ${p.reorder_point}`}>
+                                  <span style={{ width: `${(p.stock / max) * 100}%` }} />
+                                  <i style={{ left: `${(p.reorder_point / max) * 100}%` }} />
+                                </span>
+                                <span className="muted" style={{ fontSize: 12 }}>{p.unit}s</span>
+                              </div>
+                            </td>
+                            <td className="num">{p.reorder_point}</td>
+                            <td className="num">{p.on_order ? <span className="strong">{p.on_order}</span> : <span className="muted">—</span>}</td>
+                            {finance && <td className="num">{fmtMoney(p.unit_cost)}</td>}
+                            {finance && <td className="num strong">{fmtMoney0(p.stock_value)}</td>}
+                            <td><StockPill status={p.status} /></td>
+                            <td className="right actions">
+                              <RowMenu label={`Actions for ${p.name}`} items={[
+                                { label: 'Record usage', icon: <Minus size={15} />, onClick: () => setStockFor({ product: p, type: 'usage' }), hidden: !can('stock:record_usage') },
+                                { label: 'Record waste', icon: <Trash2 size={15} />, onClick: () => setStockFor({ product: p, type: 'waste' }), hidden: !can('stock:record_usage') },
+                                { label: 'Stock count correction', icon: <ClipboardCheck size={15} />, onClick: () => setStockFor({ product: p, type: 'adjustment' }), hidden: !can('stock:adjust') },
+                                { label: 'Edit product', icon: <Pencil size={15} />, onClick: () => setEditing(p), hidden: !can('products:manage') },
+                                { label: 'Archive', icon: <Archive size={15} />, onClick: () => setArchiving(p), danger: true, hidden: !can('products:delete') },
+                              ]} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <FillerRows count={props.pageSize - slice.length} cols={cols.length} />
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>

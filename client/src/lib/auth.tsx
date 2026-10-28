@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, setUnauthorizedHandler, tokenStore } from './api';
+import { clearApiCache } from './hooks';
 import type { Permission, User } from './types';
 
 interface AuthState {
@@ -18,6 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     tokenStore.set(null);
+    clearApiCache();
     setUser(null);
   }, []);
 
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const r = await api.post<{ token: string; user: User }>('/auth/login', { email, password });
     tokenStore.set(r.token);
+    clearApiCache();
     setUser(r.user);
   }, []);
 

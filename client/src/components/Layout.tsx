@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronsUpDown, LogOut, Plus, ShieldCheck, ShieldAlert, KeyRound, UserRound } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/hooks';
-import { Avatar, RoleBadge, useClickOutside } from './ui';
+import { Avatar, RoleBadge, Sk, useClickOutside } from './ui';
 import type { Permission } from '../lib/types';
 
 const NAV: { to: string; label: string; perm?: Permission }[] = [
@@ -56,8 +56,10 @@ export default function Layout() {
             {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => (
               <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
                 {n.label}
-                {n.to === '/purchase-orders' && pending && pending.length > 0 && (
-                  <span className="count" title={`${pending.length} awaiting approval`}>{pending.length}</span>
+                {n.to === '/purchase-orders' && can('po:approve') && (
+                  // Slot is always reserved for approvers, so the centred tabs never move when the count arrives.
+                  <span className="count" title={pending?.length ? `${pending.length} awaiting approval` : undefined}
+                    style={{ visibility: pending?.length ? 'visible' : 'hidden' }}>{pending?.length || 0}</span>
                 )}
               </NavLink>
             ))}
@@ -102,13 +104,12 @@ export default function Layout() {
           <span className="item"><CalendarDays size={13} /> Period: <b>Last 16 weeks</b></span>
           <span className="item hide-sm">Signed in as <b>{user.name}</b> · <RoleBadge role={user.role} /></span>
           <span className="grow" />
-          {integrity && (
-            <span className="item hide-sm" title="Every product's stock equals the sum of its ledger entries">
-              {integrity.ok
-                ? <><ShieldCheck size={13} color="var(--green)" /> Ledger reconciled · <b className="num">{integrity.movements.toLocaleString()}</b> entries</>
+          <span className="item hide-sm" title="Every product's stock equals the sum of its ledger entries">
+            {!integrity ? <><ShieldCheck size={13} color="var(--faint)" /> <Sk w={190} /></>
+              : integrity.ok
+                ? <><ShieldCheck size={13} color="var(--green)" /> Ledger reconciled · <b>{integrity.movements.toLocaleString()}</b> entries</>
                 : <><ShieldAlert size={13} color="var(--red)" /> <b>Ledger mismatch detected</b></>}
-            </span>
-          )}
+          </span>
         </div>
 
         <main className="main">

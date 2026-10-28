@@ -3,7 +3,7 @@ import { Check, Minus } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/hooks';
 import type { Role } from '../lib/types';
-import { RoleBadge, Skeleton } from '../components/ui';
+import { RoleBadge, SkeletonRows } from '../components/ui';
 
 interface Meta {
   roles: { key: Role; label: string; description: string }[];
@@ -12,7 +12,10 @@ interface Meta {
 
 export function PermissionMatrix({ highlight }: { highlight?: Role }) {
   const { data } = useApi<Meta>('/meta/roles');
-  if (!data) return <Skeleton h={300} />;
+  if (!data) {
+    // 20 permissions + 5 group rows, the matrix's real height.
+    return <div className="table-wrap"><table className="table compact matrix"><tbody><SkeletonRows rows={25} cols={['50%', 24, 24, 24]} /></tbody></table></div>;
+  }
   const groups = [...new Set(data.permissions.map((p) => p.group))];
   return (
     <div className="table-wrap">

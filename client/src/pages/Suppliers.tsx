@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useApi, useSearchHotkey } from '../lib/hooks';
 import type { Product, PurchaseOrder, Supplier } from '../lib/types';
 import { fmtMoney0, timeAgo, fmtDate } from '../lib/format';
-import { ConfirmDialog, Drawer, Empty, Modal, PageSkeleton, POStatusPill, SearchInput, StockPill, SupplierLogo, useToast } from '../components/ui';
+import { ConfirmDialog, Drawer, Empty, ErrorState, Modal, POStatusPill, SearchInput, Sk, SkeletonRows, StockPill, SupplierLogo, TableEmpty, useToast } from '../components/ui';
 import RowMenu from '../components/RowMenu';
 
 const SWATCHES = ['#151515', '#3B2A20', '#2F6FED', '#1FB83F', '#E39A2D', '#E8456B', '#5E9C76', '#7C5CDB'];
@@ -14,7 +14,7 @@ const SWATCHES = ['#151515', '#3B2A20', '#2F6FED', '#1FB83F', '#E39A2D', '#E8456
 export default function Suppliers() {
   const { can } = useAuth();
   const finance = can('finance:view');
-  const { data, reload } = useApi<Supplier[]>('/suppliers');
+  const { data, error, reload } = useApi<Supplier[]>('/suppliers');
   const [q, setQ] = useState('');
   const [editing, setEditing] = useState<Supplier | 'new' | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
@@ -26,8 +26,10 @@ export default function Suppliers() {
   const rows = useMemo(() => (data ?? []).filter((s) =>
     !q || `${s.name} ${s.contact_name} ${s.email}`.toLowerCase().includes(q.toLowerCase())), [data, q]);
 
-  if (!data) return <PageSkeleton />;
-  const totalSpend = data.reduce((a, s) => a + (s.spend_90d ?? 0), 0);
+  const list = data ?? [];
+  const totalSpend = list.reduce((a, s) => a + (s.spend_90d ?? 0), 0);
+  const cols = finance ? ['25%', '18%', '8%', '9%', '8%', '9%', '11%', '9%', 52] : ['28%', '20%', '9%', '10%', '9%', '10%', '11%', 52];
+  const kpi = (v: React.ReactNode) => (data ? v : <Sk w={40} />);
 
   return (
     <>
@@ -42,50 +44,56 @@ export default function Suppliers() {
       </div>
 
       <div className="kpi-strip">
-        <div><span className="label">Active suppliers</span><div className="kpi-value num" style={{ marginTop: 6 }}>{data.length}</div></div>
-        <div><span className="label">Open orders</span><div className="kpi-value num" style={{ marginTop: 6 }}>{data.reduce((a, s) => a + s.open_orders, 0)}</div></div>
-        <div><span className="label">Avg. lead time</span><div className="kpi-value num" style={{ marginTop: 6 }}>{(data.reduce((a, s) => a + s.lead_time_days, 0) / (data.length || 1)).toFixed(1)} days</div></div>
-        <div><span className="label">{finance ? 'Spend · 90 days' : 'Products covered'}</span><div className="kpi-value num" style={{ marginTop: 6 }}>{finance ? fmtMoney0(totalSpend) : data.reduce((a, s) => a + s.product_count, 0)}</div></div>
+        <div><span className="label">Active suppliers</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(list.length)}</div></div>
+        <div><span className="label">Open orders</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(list.reduce((a, s) => a + s.open_orders, 0))}</div></div>
+        <div><span className="label">Avg. lead time</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(`${(list.reduce((a, s) => a + s.lead_time_days, 0) / (list.length || 1)).toFixed(1)} days`)}</div></div>
+        <div><span className="label">{finance ? 'Spend · 90 days' : 'Products covered'}</span><div className="kpi-value" style={{ marginTop: 6 }}>{kpi(finance ? fmtMoney0(totalSpend) : list.reduce((a, s) => a + s.product_count, 0))}</div></div>
       </div>
 
       <section className="section" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="toolbar">
-          <span className="muted">{rows.length} suppliers</span>
+          <span className="muted">{data ? `${rows.length} suppliers` : <Sk w={72} />}</span>
           <span className="grow" />
           <SearchInput ref={searchRef} value={q} onChange={setQ} placeholder="Search suppliers" width={240} />
         </div>
-        {rows.length === 0 ? <Empty icon={<Truck size={20} />} title="No suppliers found" /> : (
+        {error && !data ? <ErrorState message={error} onRetry={reload} /> : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table fixed" style={{ minWidth: finance ? 960 : 860 }}>
+              <colgroup>{cols.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
               <thead>
                 <tr>
                   <th>Supplier</th>
-                  <th className="hide-sm">Contact</th>
+                  <th>Contact</th>
                   <th className="num">Lead time</th>
-                  <th className="hide-sm">Terms</th>
+                  <th>Terms</th>
                   <th className="num">Products</th>
                   <th className="num">Open orders</th>
                   {finance && <th className="num">Spend · 90d</th>}
-                  <th className="hide-sm">Last order</th>
-                  <th style={{ width: 40 }} />
+                  <th>Last order</th>
+                  <th aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
-                {rows.map((s) => {
+                {!data ? <SkeletonRows rows={7} cols={finance ? ['75%', '70%', 24, 44, 16, 16, 48, 52, 0] : ['75%', '70%', 24, 44, 16, 16, 52, 0]} /> : rows.length === 0 ? (
+                  <TableEmpty cols={cols.length} rows={4}><Empty icon={<Truck size={20} />} title="No suppliers found">Try a different search.</Empty></TableEmpty>
+                ) : rows.map((s) => {
                   const share = totalSpend ? (s.spend_90d ?? 0) / totalSpend : 0;
                   return (
                     <tr key={s.id} className="clickable" onClick={() => setViewing(s.id)}>
                       <td>
                         <div className="cell-main">
                           <SupplierLogo name={s.name} color={s.color} size={30} />
-                          <div><div className="strong">{s.name}</div><div className="sub">{s.address}</div></div>
+                          <div>
+                            <button type="button" className="cell-button" title={s.name} onClick={(e) => { e.stopPropagation(); setViewing(s.id); }}>{s.name}</button>
+                            <div className="sub" title={s.address ?? undefined}>{s.address}</div>
+                          </div>
                         </div>
                       </td>
-                      <td className="hide-sm"><div>{s.contact_name}</div><div className="sub">{s.email}</div></td>
+                      <td><div className="ellipsis">{s.contact_name}</div><div className="sub" title={s.email ?? undefined}>{s.email}</div></td>
                       <td className="num">{s.lead_time_days}d</td>
-                      <td className="hide-sm"><span className="tag">{s.payment_terms ?? '—'}</span></td>
+                      <td><span className="tag">{s.payment_terms ?? '—'}</span></td>
                       <td className="num">{s.product_count}</td>
-                      <td className="num">{s.open_orders ? <span className="pill blue plain num">{s.open_orders}</span> : <span className="muted">—</span>}</td>
+                      <td className="num">{s.open_orders ? <span className="pill blue plain">{s.open_orders}</span> : <span className="muted">—</span>}</td>
                       {finance && (
                         <td className="num">
                           <div className="strong">{fmtMoney0(s.spend_90d)}</div>
@@ -94,9 +102,9 @@ export default function Suppliers() {
                           </div>
                         </td>
                       )}
-                      <td className="hide-sm muted">{timeAgo(s.last_order_at)}</td>
-                      <td className="right">
-                        <RowMenu items={[
+                      <td className="muted">{timeAgo(s.last_order_at)}</td>
+                      <td className="right actions">
+                        <RowMenu label={`Actions for ${s.name}`} items={[
                           { label: 'Edit supplier', icon: <Pencil size={15} />, onClick: () => setEditing(s), hidden: !can('suppliers:manage') },
                           { label: 'Archive', icon: <Archive size={15} />, onClick: () => setArchiving(s), danger: true, hidden: !can('suppliers:delete') },
                         ]} />
