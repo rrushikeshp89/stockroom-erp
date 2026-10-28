@@ -75,7 +75,7 @@ export default function Products() {
             { value: 'ok', label: 'Healthy', count: products ? products.length - attention : null },
           ]} />
           <span className="grow" />
-          <select className="select" style={{ width: 160, height: 32 }} value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+          <select className="select toolbar-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
             <option value="">All categories</option>
             {categories.map((c) => <option key={c}>{c}</option>)}
           </select>

@@ -107,8 +107,6 @@ h1, h2, h3, h4, p { margin: 0; }
 /* ── App shell ─────────────────────────────────────────────────────────────── */
 
 .shell {
-  min-height: 100%;
-  padding: 20px;
   display: flex;
   justify-content: center;
 }
@@ -122,7 +120,6 @@ h1, h2, h3, h4, p { margin: 0; }
   display: flex;
   flex-direction: column;
   overflow: clip;
-  min-height: calc(100vh - 40px);
 }
 
 .topbar {
@@ -634,7 +631,7 @@ h1, h2, h3, h4, p { margin: 0; }
   display: grid; place-items: center; padding: 20px;
 }
 .modal {
-  width: 100%; max-width: 520px; max-height: calc(100vh - 40px); overflow: auto;
+  width: 100%; max-width: 520px; overflow: auto;
   background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-pop);
 }
 .modal.wide { max-width: 680px; }
@@ -673,7 +670,7 @@ h1, h2, h3, h4, p { margin: 0; }
 /* ── Login ────────────────────────────────────────────────────────────────── */
 
 .login {
-  min-height: 100%; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px;
+  padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px;
 }
 .login-form {
   background: var(--surface); border-radius: var(--radius-frame); box-shadow: var(--shadow-frame);
@@ -857,31 +854,183 @@ h1, h2, h3, h4, p { margin: 0; }
   .route, .flash::after, .timeline li.is-new::after { animation: none !important; }
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────────── */
+/* ── Layout breakpoints ───────────────────────────────────────────────────── */
 
 @media (max-width: 1180px) {
   .dash, .detail { grid-template-columns: 1fr; }
-  .topbar { grid-template-columns: auto 1fr auto; }
-  .tabs-nav { overflow-x: auto; justify-content: center; }
 }
 @media (max-width: 860px) {
-  .shell { padding: 0; }
-  .frame { border-radius: 0; min-height: 100vh; }
-  .topbar { grid-template-columns: 1fr auto; height: auto; padding: 10px 12px; row-gap: 6px; }
-  .tabs-nav { grid-column: 1 / -1; order: 3; justify-content: flex-start; height: 40px; margin: 0 -12px; padding: 0 4px; }
   .brand-org, .subbar .hide-sm, .hide-sm { display: none !important; }
   .section, .page-head { padding-left: 16px; padding-right: 16px; }
   .page-head { flex-direction: column; align-items: stretch; }
-  .kpis, .kpis.four, .kpi-strip { grid-template-columns: 1fr 1fr; row-gap: 20px; }
-  .kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
-  .kpi-strip > div { padding: 14px 16px; }
-  .split-2, .form-grid { grid-template-columns: 1fr; }
+  .kpi-strip { grid-template-columns: 1fr 1fr; row-gap: 0; }
+  .kpi-strip > div, .kpi-strip-button { padding: 14px 16px; }
+  .kpi-strip > :nth-child(3) { border-left: 0; }
+  .kpi-strip > :nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: auto; }
   .login { grid-template-columns: 1fr; padding: 0; }
   .login-form { border-radius: 0; padding: 20px 16px; }
   .login-art { display: none; }
   .totals { width: 100%; }
+  .topbar { padding: 8px 12px; height: 60px; }
 }
 
-.supplier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
-.supplier-grid .demo-account { min-height: 54px; }
+/* ── Responsive & viewport ────────────────────────────────────────────────── */
+
+/* Dynamic viewport units (mobile URL bar) with a vh fallback, and safe-area insets. */
+.shell {
+  min-height: 100vh; min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+}
+.frame { min-height: calc(100vh - 40px); min-height: calc(100dvh - 40px); }
+.modal { max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); }
+.login { min-height: 100vh; min-height: 100dvh; }
+.toasts { right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); }
+
+/* Cards adapt to their own width, not the viewport. */
+.section { container-type: inline-size; }
+.dash-left { container-type: inline-size; container-name: column; }
+
+@container (max-width: 560px) {
+  .kpis { grid-template-columns: 1fr 1fr; row-gap: 20px; }
+  .kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .kpi:nth-child(even) { padding-right: 0; }
+}
+@container (max-width: 360px) {
+  .kpis { grid-template-columns: 1fr; }
+  .kpi { padding: 0; border-left: 0; }
+}
+@container (max-width: 640px) {
+  .activity-who { display: none !important; }
+  .activity-when { min-width: 0; }
+}
+@container column (max-width: 620px) {
+  .split-2 { grid-template-columns: 1fr; }
+}
+
+/* Horizontal scroll stays inside the card: right-edge shadow hints at more columns
+   (the 'local' cover slides away once you reach the end), first column stays put. */
+.table-wrap {
+  overscroll-behavior-x: contain;
+  background:
+    linear-gradient(to left, var(--surface) 30%, rgba(255, 255, 255, 0)) right / 40px 100% no-repeat local,
+    radial-gradient(farthest-side at 100% 50%, rgba(21, 21, 21, 0.12), transparent) right / 14px 100% no-repeat scroll;
+}
+@media (max-width: 1023px) {
+  .table th:first-child, .table td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: inset -1px 0 var(--line);
+  }
+  .table tbody tr.clickable:hover td:first-child { background: #fafbfa; }
+  .table tr.filler td:first-child { box-shadow: none; }
+}
+
+/* Navigation: full tab bar at ≥1024 (org switcher hides below 1280 to make room);
+   below 1024 a menu button opens an off-canvas drawer. */
+.nav-toggle { display: none; }
+@media (max-width: 1279px) {
+  .brand-org { display: none; }
+  .tabs-nav a { padding: 0 10px; }
+}
+@media (max-width: 1023px) {
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .topbar .tabs-nav { display: none; }
+  .nav-toggle { display: inline-grid; }
+}
+.nav-drawer {
+  position: fixed; inset: 0 auto 0 0; z-index: 70; width: min(320px, 86vw);
+  padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: var(--surface); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 4px;
+  animation: nav-in var(--dur-panel) var(--ease-out);
+}
+.overlay.closing .nav-drawer { animation: nav-out 160ms var(--ease-in) forwards; }
+.nav-drawer nav { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.nav-drawer nav a {
+  display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 14px; border-radius: 10px;
+  color: var(--ink-2); font-weight: 500;
+}
+.nav-drawer nav a.active { background: var(--surface-3); color: var(--ink); }
+.nav-drawer .count { position: static; }
+@keyframes nav-in { from { transform: translateX(-24px); opacity: 0; } }
+@keyframes nav-out { to { transform: translateX(-24px); opacity: 0; } }
+
+/* PO list becomes stacked cards on phones. */
+@media (max-width: 639px) {
+  .table.stack-sm { min-width: 0 !important; }
+  .table.stack-sm colgroup, .table.stack-sm thead { display: none; }
+  .table.stack-sm, .table.stack-sm tbody { display: block; }
+  .table.stack-sm tbody tr:not(.filler) {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'order status' 'supplier value' 'meta meta';
+    gap: 6px 12px; padding: 12px 8px; border-bottom: 1px solid var(--line); min-height: 104px;
+  }
+  .table.stack-sm tbody tr.filler { display: block; height: 104px; }
+  .table.stack-sm td { display: block; height: auto; padding: 0; border: 0; position: static !important; box-shadow: none !important; background: none !important; }
+  .table.stack-sm td[data-label='Order'] { grid-area: order; }
+  .table.stack-sm td[data-label='Status'] { grid-area: status; justify-self: end; }
+  .table.stack-sm td[data-label='Supplier'] { grid-area: supplier; }
+  .table.stack-sm td[data-label='Value'] { grid-area: value; text-align: right; }
+  .table.stack-sm td[data-label='Expected'] { grid-area: meta; color: var(--muted); font-size: 12px; }
+  .table.stack-sm td[data-label='Expected']::before { content: 'Expected · '; }
+  .table.stack-sm td[data-label='Requested by'], .table.stack-sm td[data-label='Receiver'], .table.stack-sm td[data-label='Units'] { display: none; }
+  .table.stack-sm tr.filler td { display: none; }
+}
+
+/* PO form on phones: line items stack, a totals bar sticks to the bottom. */
+.sticky-actions { display: none; }
+@media (max-width: 639px) {
+  .lines-table, .lines-table tbody { display: block; min-width: 0 !important; }
+  .lines-table colgroup, .lines-table thead { display: none; }
+  .lines-table tbody tr {
+    display: grid; grid-template-columns: 1fr 1fr auto; grid-template-areas: 'name name remove' 'stock stock stock' 'qty cost total';
+    gap: 8px 10px; padding: 14px 8px; border-bottom: 1px solid var(--line);
+  }
+  .lines-table td { display: block; height: auto; padding: 0; border: 0; position: static !important; box-shadow: none !important; }
+  .lines-table td[data-cell='name'] { grid-area: name; }
+  .lines-table td[data-cell='stock'] { grid-area: stock; }
+  .lines-table td[data-cell='qty'] { grid-area: qty; }
+  .lines-table td[data-cell='cost'] { grid-area: cost; }
+  .lines-table td[data-cell='total'] { grid-area: total; align-self: center; }
+  .lines-table td[data-cell='remove'] { grid-area: remove; }
+  .lines-table td[data-cell]::before { display: block; font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .lines-table td[data-cell='qty']::before { content: 'Quantity'; }
+  .lines-table td[data-cell='cost']::before { content: 'Unit cost'; }
+  .po-form .totals { display: none; }
+  .sticky-actions {
+    display: flex; align-items: center; gap: 12px; position: sticky; bottom: 0; z-index: 5;
+    margin: 0; padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px); border-top: 1px solid var(--line);
+  }
+}
+
+/* Touch: every control gets a 44×44 target. Dense inline links grow their hit area with
+   an invisible pseudo-element (.hit), so table rows keep their height. */
+@media (pointer: coarse), (max-width: 767px) {
+  .btn, .btn.sm, .btn.lg { --h: 44px; min-width: 44px; }
+  .seg-tabs button { min-width: 44px; justify-content: center; }
+  .icon-btn { width: 44px; height: 44px; }
+  .input, .select, .textarea, .select.sm, .input.sm, .search .input { height: 44px; font-size: 16px; }
+  .textarea { height: auto; }
+  .seg-tabs button { height: 44px; }
+  .pager .page { min-width: 44px; height: 44px; }
+  .legend label, .toolbar > label, .table-foot label { min-height: 44px; }
+  .menu button, .menu a { min-height: 44px; }
+  .crumb { min-height: 44px; margin-bottom: 0; }
+  .avatar-button { width: 44px; height: 44px; justify-content: center; align-items: center; }
+  .seg-tabs { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .hit, .row-link, .cell-button, .text-link, .crumb { position: relative; }
+  .hit::before, .row-link::before, .cell-button::before, .text-link::before, .crumb::before {
+    content: ''; position: absolute;
+    top: min(0px, calc(50% - 22px)); bottom: min(0px, calc(50% - 22px));
+    left: min(0px, calc(50% - 22px)); right: min(0px, calc(50% - 22px));
+  }
+}
+
+@media (max-width: 860px) {
+  .shell { padding: 0; }
+  .frame { border-radius: 0; min-height: 100vh; min-height: 100dvh; }
+}
+
+.avatar-button { border: 0; background: none; padding: 0; cursor: pointer; display: inline-flex; border-radius: 50%; }
+
+.toolbar-select { width: 160px; height: 32px; }
+@media (pointer: coarse), (max-width: 767px) { .toolbar-select { height: 44px; } }

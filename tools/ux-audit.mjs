@@ -103,7 +103,17 @@ const MEASURE = String(async function measure(page, withInter) {
   if (innerWidth <= 1024) {
     const els = [...document.querySelectorAll('a,button,input:not([type=hidden]),select,textarea,[role=tab]')].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden'; });
     // An element passes if it or a wrapping label/hit-area is at least 44×44.
-    const hit = (e) => { const r = (e.closest('label') || e).getBoundingClientRect(); return r.width >= 44 && r.height >= 44; };
+    const hit = (e) => {
+      const r = (e.closest('label') || e).getBoundingClientRect();
+      if (r.width >= 44 && r.height >= 44) return true;
+      // An absolutely positioned ::before that expands the hit area (see .hit in styles.css) counts.
+      const pseudo = getComputedStyle(e, '::before');
+      if (pseudo.content !== 'none' && pseudo.position === 'absolute') {
+        const grow = (v) => -Math.min(0, parseFloat(v) || 0);
+        return r.width + grow(pseudo.left) + grow(pseudo.right) >= 44 && r.height + grow(pseudo.top) + grow(pseudo.bottom) >= 44;
+      }
+      return false;
+    };
     const small = els.filter((e) => !hit(e));
     res.taps = `${small.length}/${els.length}`;
     res.tapEx = small.slice(0, 3).map((e) => { const r = e.getBoundingClientRect(); return `${desc(e)} ${Math.round(r.width)}×${Math.round(r.height)}`; });
@@ -183,7 +193,7 @@ async function main() {
   for (const width of WIDTHS) {
     const height = width <= 390 ? 800 : width <= 768 ? 1024 : 900;
     await c.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 });
-    await c.send('Emulation.setTouchEmulationEnabled', { enabled: width < 768 });
+    await c.send('Emulation.setTouchEmulationEnabled', { enabled: width < 1024 }); // phones and tablets are touch
 
     await go('/login');
     await evaluate("localStorage.removeItem('stockroom.token')");

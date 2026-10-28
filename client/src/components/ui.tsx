@@ -125,7 +125,7 @@ let scrollLocks = 0;
  * trigger on close, and the page behind can't scroll. Locking scroll can't shift
  * layout because the root reserves the scrollbar gutter (`scrollbar-gutter: stable`).
  */
-function useDialog(panel: React.RefObject<HTMLElement>, onClose: () => void) {
+export function useDialog(panel: React.RefObject<HTMLElement>, onClose: () => void) {
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -158,7 +158,7 @@ function useDialog(panel: React.RefObject<HTMLElement>, onClose: () => void) {
 }
 
 /** Plays the exit animation (ease-in) before unmounting via onClose. */
-function useExit(onClose: () => void) {
+export function useExit(onClose: () => void) {
   const [closing, setClosing] = useState(false);
   const reduce = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const requestClose = useCallback(() => {

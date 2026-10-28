@@ -94,7 +94,7 @@ export default function PurchaseOrderForm() {
   };
 
   return (
-    <div className="hairline detail">
+    <div className="hairline detail po-form">
       <div>
         <div className="section">
           <Link to={editing ? `/purchase-orders/${id}` : '/purchase-orders'} className="crumb"><ArrowLeft size={13} /> {editing ? existing?.number : 'Purchase orders'}</Link>
@@ -131,15 +131,19 @@ export default function PurchaseOrderForm() {
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table compact">
+                <table className="table compact fixed lines-table" style={{ minWidth: finance ? 620 : 480 }}>
+                  <colgroup>
+                    <col /><col style={{ width: 150 }} /><col style={{ width: 110 }} />
+                    {finance && <col style={{ width: 120 }} />}{finance && <col style={{ width: 100 }} />}<col style={{ width: 52 }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>Product</th>
-                      <th className="hide-sm">Stock</th>
-                      <th style={{ width: 110 }}>Quantity</th>
-                      {finance && <th style={{ width: 120 }}>Unit cost</th>}
+                      <th>Stock</th>
+                      <th>Quantity</th>
+                      {finance && <th>Unit cost</th>}
                       {finance && <th className="num">Total</th>}
-                      <th style={{ width: 40 }} />
+                      <th aria-label="Remove" />
                     </tr>
                   </thead>
                   <tbody>
@@ -147,12 +151,12 @@ export default function PurchaseOrderForm() {
                       const p = byId.get(l.product_id)!;
                       return (
                         <tr key={l.product_id}>
-                          <td><div className="strong">{p.name}</div><div className="sub num">{p.sku} · {p.unit}</div></td>
-                          <td className="hide-sm"><span className="row" style={{ gap: 8 }}><span className="num">{p.stock}</span><StockPill status={p.status} /></span></td>
-                          <td><input className="input sm num" type="number" min={1} value={l.quantity} onChange={(e) => update(i, { quantity: Math.max(1, Number(e.target.value)) })} /></td>
-                          {finance && <td><input className="input sm num" type="number" min={0} step="0.01" value={l.unit_cost ?? 0} onChange={(e) => update(i, { unit_cost: Number(e.target.value) })} /></td>}
-                          {finance && <td className="num strong">{fmtMoney(l.quantity * (l.unit_cost ?? 0))}</td>}
-                          <td><button className="icon-btn" onClick={() => setLines(lines.filter((_, j) => j !== i))} aria-label="Remove line"><X size={15} /></button></td>
+                          <td data-cell="name"><div className="strong" title={p.name}>{p.name}</div><div className="sub">{p.sku} · {p.unit}</div></td>
+                          <td data-cell="stock"><span className="row" style={{ gap: 8 }}><span>{p.stock} on hand</span><StockPill status={p.status} /></span></td>
+                          <td data-cell="qty"><input className="input sm" type="number" inputMode="numeric" min={1} value={l.quantity} aria-label={`Quantity of ${p.name}`} onChange={(e) => update(i, { quantity: Math.max(1, Number(e.target.value)) })} /></td>
+                          {finance && <td data-cell="cost"><input className="input sm" type="number" inputMode="decimal" min={0} step="0.01" value={l.unit_cost ?? 0} aria-label={`Unit cost of ${p.name}`} onChange={(e) => update(i, { unit_cost: Number(e.target.value) })} /></td>}
+                          {finance && <td data-cell="total" className="num strong">{fmtMoney(l.quantity * (l.unit_cost ?? 0))}</td>}
+                          <td data-cell="remove" className="actions"><button className="icon-btn" onClick={() => setLines(lines.filter((_, j) => j !== i))} aria-label={`Remove ${p.name}`}><X size={15} /></button></td>
                         </tr>
                       );
                     })}
@@ -160,7 +164,7 @@ export default function PurchaseOrderForm() {
                 </table>
               </div>
               <div className="row" style={{ marginTop: 14 }}>
-                <select className="select" style={{ maxWidth: 340 }} value="" onChange={(e) => { const p = byId.get(Number(e.target.value)); if (p) addLine(p); }}>
+                <select className="select" style={{ maxWidth: 340 }} value="" aria-label="Add a product" onChange={(e) => { const p = byId.get(Number(e.target.value)); if (p) addLine(p); }}>
                   <option value="">+ Add a product from {supplier.name}…</option>
                   {catalog.filter((p) => !lines.some((l) => l.product_id === p.id)).map((p) => (
                     <option key={p.id} value={p.id}>{p.name} — {p.stock} on hand</option>
@@ -178,6 +182,16 @@ export default function PurchaseOrderForm() {
             </>
           )}
         </div>
+        {supplier && lines.length > 0 && (
+          // Phones: the total and the main action stay pinned to the bottom while editing lines.
+          <div className="sticky-actions" role="region" aria-label="Order total">
+            <div className="grow">
+              <div className="label">{finance ? 'Order total' : 'Units'}</div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>{finance ? fmtMoney(total) : lines.reduce((s, l) => s + l.quantity, 0)}</div>
+            </div>
+            <button className="btn primary" aria-busy={busy === 'submit'} disabled={!!busy} onClick={() => save(true)}><Send size={14} /><span>Submit</span></button>
+          </div>
+        )}
       </div>
 
       <aside>
@@ -205,11 +219,11 @@ export default function PurchaseOrderForm() {
           </div>
           {error && <div className="callout red">{error}</div>}
           <div className="stack" style={{ gap: 8, marginTop: 4 }}>
-            <button className="btn primary lg block" disabled={!supplier || !lines.length || !!busy} onClick={() => save(true)}>
-              {busy === 'submit' ? <span className="spinner" /> : <Send size={14} />} Save &amp; submit for approval
+            <button className="btn primary lg block" aria-busy={busy === 'submit'} disabled={!supplier || !lines.length || !!busy} onClick={() => save(true)}>
+              <Send size={14} /><span>Save &amp; submit for approval</span>
             </button>
-            <button className="btn lg block" disabled={!supplier || !lines.length || !!busy} onClick={() => save(false)}>
-              {busy === 'draft' && <span className="spinner" />} Save as draft
+            <button className="btn lg block" aria-busy={busy === 'draft'} disabled={!supplier || !lines.length || !!busy} onClick={() => save(false)}>
+              <span>Save as draft</span>
             </button>
           </div>
         </div>
