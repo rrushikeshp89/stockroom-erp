@@ -1,4 +1,4 @@
-import { createContext, forwardRef, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, forwardRef, useCallback, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, ChevronLeft, ChevronRight, RotateCw, Search, X } from 'lucide-react';
 import type { POStatus, Role, StockStatus } from '../lib/types';
@@ -117,27 +117,74 @@ export function usePaged<T>(rows: T[], initialSize = 10) {
 
 // ── Overlays ─────────────────────────────────────────────────────────────────
 
-function useEscape(onClose: () => void) {
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+let scrollLocks = 0;
+
+/**
+ * Shared dialog behaviour: Esc closes, Tab is trapped inside, focus returns to the
+ * trigger on close, and the page behind can't scroll. Locking scroll can't shift
+ * layout because the root reserves the scrollbar gutter (`scrollbar-gutter: stable`).
+ */
+function useDialog(panel: React.RefObject<HTMLElement>, onClose: () => void) {
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+    const opener = document.activeElement as HTMLElement | null;
+    const el = panel.current!;
+    if (!el.contains(document.activeElement)) {
+      (el.querySelector<HTMLElement>('[autofocus]') ?? el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus();
+    }
+    if (scrollLocks++ === 0) document.documentElement.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      // Only the topmost dialog reacts.
+      const dialogs = document.querySelectorAll('[aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== el) return;
+      if (e.key === 'Escape') { e.preventDefault(); close.current(); }
+      if (e.key === 'Tab') {
+        const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((n) => n.offsetParent !== null);
+        if (!items.length) { e.preventDefault(); return; }
+        const first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      if (--scrollLocks === 0) document.documentElement.style.overflow = '';
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+    };
+  }, [panel]);
+}
+
+/** Plays the exit animation (ease-in) before unmounting via onClose. */
+function useExit(onClose: () => void) {
+  const [closing, setClosing] = useState(false);
+  const reduce = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const requestClose = useCallback(() => {
+    if (reduce) { onClose(); return; }
+    setClosing(true);
+    setTimeout(onClose, 160);
+  }, [onClose, reduce]);
+  return [closing, requestClose] as const;
 }
 
 export function Modal({ title, description, onClose, children, footer, wide }: {
   title: ReactNode; description?: ReactNode; onClose: () => void; children: ReactNode; footer?: ReactNode; wide?: boolean;
 }) {
-  useEscape(onClose);
+  const panel = useRef<HTMLDivElement>(null);
+  const [closing, requestClose] = useExit(onClose);
+  useDialog(panel, requestClose);
+  const titleId = useId();
   return createPortal(
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true">
+    <div className={`overlay ${closing ? 'closing' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && requestClose()}>
+      <div ref={panel} className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-head">
           <div>
-            <h2>{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {description && <p>{description}</p>}
           </div>
-          <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button>
+          <button className="icon-btn" onClick={requestClose} aria-label="Close"><X size={16} /></button>
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
@@ -147,15 +194,17 @@ export function Modal({ title, description, onClose, children, footer, wide }: {
   );
 }
 
-export function Drawer({ onClose, header, children }: { onClose: () => void; header: ReactNode; children: ReactNode }) {
-  useEscape(onClose);
+export function Drawer({ onClose, header, children, label }: { onClose: () => void; header: ReactNode; children: ReactNode; label?: string }) {
+  const panel = useRef<HTMLElement>(null);
+  const [closing, requestClose] = useExit(onClose);
+  useDialog(panel, requestClose);
   return createPortal(
-    <div className="overlay drawer-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="drawer" role="dialog" aria-modal="true">
+    <div className={`overlay drawer-overlay ${closing ? 'closing' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && requestClose()}>
+      <aside ref={panel} className="drawer" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>
         <div className="drawer-head">
           <div className="row" style={{ alignItems: 'flex-start' }}>
             <div className="grow">{header}</div>
-            <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={16} /></button>
+            <button className="icon-btn" onClick={requestClose} aria-label="Close"><X size={16} /></button>
           </div>
         </div>
         <div className="drawer-body">{children}</div>
@@ -316,4 +365,48 @@ export function useClickOutside(ref: React.RefObject<HTMLElement>, onOutside: ()
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [ref, onOutside]);
+}
+
+// ── Motion helpers ───────────────────────────────────────────────────────────
+
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * A number that counts to its new value (ease-out, ~450ms) and briefly highlights,
+ * instead of jumping. Tabular figures keep its width steady while it counts.
+ */
+export function AnimatedNumber({ value, format = (n: number) => String(n) }: { value: number; format?: (n: number) => string }) {
+  const [shown, setShown] = useState(value);
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    const from = prev.current;
+    prev.current = value;
+    if (from === value) return;
+    setFlash(false);
+    requestAnimationFrame(() => setFlash(true));
+    if (reducedMotion()) { setShown(value); return; }
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const k = Math.min((t - t0) / 450, 1);
+      setShown(Math.round(from + (value - from) * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const off = setTimeout(() => setFlash(false), 1600);
+    return () => { cancelAnimationFrame(raf); clearTimeout(off); };
+  }, [value]);
+  return <span className={flash ? 'flash' : undefined}>{format(shown)}</span>;
+}
+
+/** Expand/collapse via grid-template-rows 0fr → 1fr (no height measuring). Closed content is inert. */
+export function Collapse({ open, children, id }: { open: boolean; children: ReactNode; id?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { ref.current?.toggleAttribute('inert', !open); }, [open]);
+  return (
+    <div ref={ref} id={id} className={`collapse ${open ? 'open' : ''}`} aria-hidden={!open}>
+      <div className="collapse-inner">{children}</div>
+    </div>
+  );
 }

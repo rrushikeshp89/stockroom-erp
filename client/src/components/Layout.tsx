@@ -113,7 +113,10 @@ export default function Layout() {
         </div>
 
         <main className="main">
-          <Outlet />
+          {/* Content-only fade on route change (opacity, 140ms); the bars around it stay still. */}
+          <div key={pathname} className="route main">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

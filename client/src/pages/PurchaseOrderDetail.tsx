@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Ban, Check, CheckCircle2, Lock, PackageCheck, Pencil, Send, Trash2, Undo2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 import { useApi } from '../lib/hooks';
 import type { Person, POAction, PurchaseOrder } from '../lib/types';
 import { fmtDate, fmtDateTime, fmtMoney, relativeDay } from '../lib/format';
-import { Avatar, ConfirmDialog, Empty, ErrorState, POStatusPill, Sk, SkeletonRows, SupplierLogo, useToast } from '../components/ui';
+import { AnimatedNumber, Avatar, ConfirmDialog, Empty, ErrorState, POStatusPill, Sk, SkeletonRows, SupplierLogo, useToast } from '../components/ui';
 
 const STEPS = [
   { key: 'draft', label: 'Draft' },
@@ -32,6 +32,9 @@ export default function PurchaseOrderDetail() {
   const { data: people } = useApi<Person[]>(can('po:assign') ? '/meta/people' : null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [assigning, setAssigning] = useState(false);
+  // Timeline entries that arrive after first render (e.g. "received") get a brief highlight.
+  const seenEvents = useRef<Set<number> | null>(null);
+  if (po?.events && !seenEvents.current) seenEvents.current = new Set(po.events.map((e) => e.id));
 
   if (error && !po) {
     return (
@@ -147,7 +150,7 @@ export default function PurchaseOrderDetail() {
                 <tr>
                   <th>Product</th>
                   <th className="num">Quantity</th>
-                  <th className="num hide-sm">{po.status === 'received' ? 'Stock now' : 'On hand → after receipt'}</th>
+                  <th className="num">{po.status === 'received' ? 'Stock now' : 'On hand → after receipt'}</th>
                   {finance && <th className="num">Unit cost</th>}
                   {finance && <th className="num">Total</th>}
                 </tr>
@@ -157,10 +160,14 @@ export default function PurchaseOrderDetail() {
                   <tr key={l.id}>
                     <td><div className="strong">{l.product_name}</div><div className="sub num">{l.sku}</div></td>
                     <td className="num strong">{l.quantity} <span className="muted" style={{ fontWeight: 400 }}>{l.unit}s</span></td>
-                    <td className="num hide-sm">
-                      {po.status === 'received' || po.status === 'cancelled'
-                        ? l.stock
-                        : <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>{l.stock} <ArrowRight size={12} className="muted" /> <b style={{ color: 'var(--green-ink)', fontWeight: 600 }}>{l.stock + l.quantity}</b></span>}
+                    <td className="num">
+                      {/* One cell structure in every state: after receiving, the stock counts up in place. */}
+                      <span className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                        <AnimatedNumber value={l.stock} />
+                        {po.status !== 'received' && po.status !== 'cancelled' && (
+                          <><ArrowRight size={12} className="muted" /> <b style={{ color: 'var(--green-ink)', fontWeight: 600 }}>{l.stock + l.quantity}</b></>
+                        )}
+                      </span>
                     </td>
                     {finance && <td className="num">{fmtMoney(l.unit_cost)}</td>}
                     {finance && <td className="num strong">{fmtMoney(l.line_total)}</td>}
@@ -216,7 +223,7 @@ export default function PurchaseOrderDetail() {
           <h2 className="section-title" style={{ fontSize: 16, marginBottom: 18 }}>Timeline</h2>
           <ul className="timeline">
             {po.events!.map((e) => (
-              <li key={e.id}>
+              <li key={e.id} className={seenEvents.current && !seenEvents.current.has(e.id) ? 'is-new' : undefined}>
                 <span className={`t-dot ${e.action === 'received' ? 'green' : e.action === 'cancelled' || e.action === 'rejected' ? 'red' : e.action === 'approved' ? 'dark' : ''}`} />
                 <div className="t-title">{EVENT_LABEL[e.action] ?? e.action}</div>
                 <div className="t-meta">{e.user_name} · {fmtDateTime(e.created_at)}</div>

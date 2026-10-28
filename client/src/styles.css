@@ -154,7 +154,7 @@ h1, h2, h3, h4, p { margin: 0; }
   padding: 0 13px;
   color: var(--muted);
   font-weight: 500;
-  transition: color 0.15s;
+  transition: color var(--dur-micro) var(--ease-out);
 }
 .tabs-nav a:hover { color: var(--ink); }
 .tabs-nav a.active { color: var(--ink); }
@@ -208,7 +208,7 @@ h1, h2, h3, h4, p { margin: 0; }
   min-width: 240px; padding: 6px;
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
   box-shadow: var(--shadow-pop);
-  animation: pop 0.14s var(--ease);
+  animation: pop var(--dur) var(--ease-out);
 }
 .menu-head { padding: 10px 10px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .menu button, .menu a {
@@ -234,7 +234,8 @@ h1, h2, h3, h4, p { margin: 0; }
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.05s;
+  transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out),
+    box-shadow var(--dur-micro) var(--ease-out), transform 60ms var(--ease-out);
   box-shadow: 0 1px 1px rgba(21, 21, 21, 0.03);
 }
 .btn:hover { background: var(--surface-2); border-color: #d6d9d6; }
@@ -259,7 +260,7 @@ h1, h2, h3, h4, p { margin: 0; }
   width: 30px; height: 30px; border-radius: 7px;
   display: inline-grid; place-items: center;
   border: 1px solid transparent; background: transparent; color: var(--muted);
-  cursor: pointer; transition: background 0.15s, color 0.15s;
+  cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
 .icon-btn.active { background: var(--surface-3); color: var(--ink); border-color: var(--line); }
@@ -274,7 +275,7 @@ h1, h2, h3, h4, p { margin: 0; }
   padding: 0 11px;
   border: 1px solid var(--line-2); border-radius: 8px;
   background: var(--surface);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out);
 }
 .input::placeholder, .textarea::placeholder { color: var(--faint); }
 .input:hover, .select:hover, .textarea:hover { border-color: #d3d6d3; }
@@ -303,7 +304,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .checkbox {
   appearance: none; width: 16px; height: 16px; margin: 0; flex: none;
   border: 1.5px solid #cfd2cf; border-radius: 4px; cursor: pointer; display: inline-grid; place-items: center;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
 }
 .checkbox:checked { background: var(--ink); border-color: var(--ink); }
 .checkbox:checked::after {
@@ -316,11 +317,11 @@ h1, h2, h3, h4, p { margin: 0; }
 .toggle { position: relative; width: 30px; height: 18px; flex: none; }
 .toggle input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
 .toggle span {
-  position: absolute; inset: 0; border-radius: 9px; background: #dfe2df; transition: background 0.15s;
+  position: absolute; inset: 0; border-radius: 9px; background: #dfe2df; transition: background-color var(--dur) var(--ease-out);
 }
 .toggle span::after {
   content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
-  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); transition: transform 0.18s var(--ease);
+  background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15); transition: transform var(--dur) var(--ease-out);
 }
 .toggle input:checked + span { background: var(--green); }
 .toggle input:checked + span::after { transform: translateX(12px); }
@@ -422,7 +423,7 @@ h1, h2, h3, h4, p { margin: 0; }
   color: var(--ink-2); vertical-align: middle;
 }
 .table.compact td { height: 44px; }
-.table tbody tr { transition: background 0.12s; }
+.table tbody tr { transition: background-color var(--dur-micro) var(--ease-out); }
 .table tbody tr.clickable { cursor: pointer; }
 .table tbody tr:hover { background: #fafbfa; }
 .table td.strong, .table td .strong { color: var(--ink); font-weight: 500; }
@@ -479,8 +480,8 @@ h1, h2, h3, h4, p { margin: 0; }
 .bar-strip { display: flex; align-items: flex-end; gap: 3px; height: 40px; width: 100%; position: relative; }
 .bar-strip .bar {
   flex: 1; min-width: 3px; border-radius: 2px; background: var(--green);
-  transform-origin: bottom; animation: grow 0.6s var(--ease) both;
-  cursor: default; transition: opacity 0.15s;
+  transform-origin: bottom; animation: grow 600ms var(--ease-out) both;
+  cursor: default; transition: opacity var(--dur-micro) var(--ease-out);
 }
 .bar-strip:hover .bar { opacity: 0.45; }
 .bar-strip .bar:hover { opacity: 1; }
@@ -631,12 +632,10 @@ h1, h2, h3, h4, p { margin: 0; }
   position: fixed; inset: 0; z-index: 60;
   background: rgba(21, 24, 22, 0.28); backdrop-filter: blur(2px);
   display: grid; place-items: center; padding: 20px;
-  animation: fade 0.15s ease;
 }
 .modal {
   width: 100%; max-width: 520px; max-height: calc(100vh - 40px); overflow: auto;
   background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-pop);
-  animation: rise 0.2s var(--ease);
 }
 .modal.wide { max-width: 680px; }
 .modal-head { padding: 22px 24px 0; display: flex; justify-content: space-between; gap: 16px; }
@@ -652,7 +651,6 @@ h1, h2, h3, h4, p { margin: 0; }
 .drawer {
   width: 100%; max-width: 520px; height: 100%; overflow: auto;
   background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-pop);
-  animation: slide 0.22s var(--ease);
   display: flex; flex-direction: column;
 }
 .drawer-head { padding: 22px 24px 18px; border-bottom: 1px solid var(--line); }
@@ -665,7 +663,7 @@ h1, h2, h3, h4, p { margin: 0; }
   display: flex; align-items: flex-start; gap: 10px;
   min-width: 300px; max-width: 420px; padding: 12px 14px;
   background: var(--ink); color: #fff; border-radius: 12px; box-shadow: var(--shadow-pop);
-  animation: rise 0.22s var(--ease);
+  animation: toast-in var(--dur) var(--ease-out);
 }
 .toast .t-icon { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; flex: none; margin-top: 1px; }
 .toast.success .t-icon { background: var(--green); }
@@ -687,7 +685,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .demo-account {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-align: left;
   border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.15s var(--ease);
+  transition: border-color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out), box-shadow var(--dur-micro) var(--ease-out);
 }
 .demo-account:hover { border-color: var(--line-2); background: var(--surface-2); }
 .demo-account.selected { border-color: var(--ink); box-shadow: 0 0 0 3px var(--surface-3); }
@@ -713,7 +711,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .feature {
   background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(8px);
   border-radius: 16px; padding: 22px; box-shadow: 0 1px 2px rgba(21, 21, 21, 0.04);
-  animation: rise 0.5s var(--ease) both;
+  animation: rise var(--dur-panel) var(--ease-out) both;
 }
 .feature.wide { grid-column: span 2; display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
 .feature p { color: var(--muted); font-size: 13.5px; line-height: 1.5; margin-top: 14px; }
@@ -819,8 +817,44 @@ h1, h2, h3, h4, p { margin: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 
+/* ── Motion ───────────────────────────────────────────────────────────────── */
+/* Only opacity and transform animate (plus 120ms colour/background hovers, which are paint-only).
+   Enter uses --ease-out, exit uses --ease-in. */
+
+.route { animation: fade 140ms var(--ease-out); }
+
+.overlay { animation: fade var(--dur) var(--ease-out); }
+.overlay.closing { animation: fade-out 160ms var(--ease-in) forwards; }
+.modal, .drawer { animation: dialog-in var(--dur-panel) var(--ease-out); }
+.drawer { transform-origin: right center; }
+.overlay.closing .modal, .overlay.closing .drawer { animation: dialog-out 160ms var(--ease-in) forwards; }
+
+/* Highlight a value that just changed (stock after receiving). Opacity-only overlay. */
+.flash { position: relative; isolation: isolate; }
+.flash::after {
+  content: ''; position: absolute; inset: -2px -6px; border-radius: 6px; z-index: -1;
+  background: var(--green-soft); animation: flash-fade 1.4s var(--ease-out) forwards;
+}
+.timeline li.is-new::after {
+  content: ''; position: absolute; inset: -6px -8px 8px 18px; border-radius: 8px; z-index: -1;
+  background: var(--green-soft); animation: flash-fade 2.4s var(--ease-out) forwards;
+}
+.timeline li { isolation: isolate; }
+
+/* Expand/collapse without measuring heights: animate the grid track from 0fr to 1fr. */
+.collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-panel) var(--ease-out); }
+.collapse.open { grid-template-rows: 1fr; }
+.collapse > .collapse-inner { min-height: 0; overflow: hidden; }
+
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes dialog-in { from { opacity: 0; transform: scale(0.98); } }
+@keyframes dialog-out { to { opacity: 0; transform: scale(0.98); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes flash-fade { 0%, 35% { opacity: 1; } to { opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0s !important; transition-duration: 0.001ms !important; }
+  .route, .flash::after, .timeline li.is-new::after { animation: none !important; }
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
