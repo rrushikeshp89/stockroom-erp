@@ -166,7 +166,8 @@ async function main() {
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
     return r.result.value;
   };
-  const go = async (url) => { const loaded = c.once('Page.loadEventFired'); await c.send('Page.navigate', { url: ORIGIN + url }); await loaded; await sleep(2300); };
+  // Never hang on a load event that doesn't arrive (slow/sleeping hosts): give up waiting after 20s.
+  const go = async (url) => { const loaded = c.once('Page.loadEventFired'); await c.send('Page.navigate', { url: ORIGIN + url }); await Promise.race([loaded, sleep(20000)]); await sleep(2300); };
 
   const tokens = {};
   for (const [role, [email, password]] of Object.entries(ROLES)) {
@@ -190,6 +191,7 @@ async function main() {
     }
     const r = await evaluate(`(${MEASURE})(${JSON.stringify(page)}, ${withInter})`).catch((e) => ({ fatal: e.message }));
     results.push({ page, role, width, ...r, console: [...new Set(consoleLog)] });
+    fs.writeFileSync(path.join(OUT, `${label}.json`), JSON.stringify(results, null, 2)); // saved as it goes
     process.stdout.write(`${page.padEnd(14)} ${role.padEnd(8)} ${String(width).padStart(4)}  load ${r.load?.v ?? '!'}\n`);
   };
 
