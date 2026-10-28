@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Activity as ActivityIcon, Box, FileText, LogIn, Truck, Users } from 'lucide-react';
 import { api } from '../lib/api';
-import { useApi } from '../lib/hooks';
+import { useApi, useWindowVirtual } from '../lib/hooks';
 import type { AuditEntry } from '../lib/types';
 import { fmtDate, fmtDateTime } from '../lib/format';
 import { Avatar, Empty, ErrorState, RoleBadge, SegTabs, Sk } from '../components/ui';
@@ -77,14 +77,7 @@ export default function Activity() {
           </div>
         ) : data.length === 0 ? <Empty icon={<ActivityIcon size={20} />} title="No activity yet" /> : (
           <div key={dataPath ?? ''} style={{ maxWidth: 880 }} className={refreshing ? 'is-refreshing' : undefined} aria-busy={refreshing}>
-            {days.map(([day, entries]) => (
-              <div key={day} style={{ marginTop: 22 }}>
-                <span className="label">{fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric' })}</span>
-                <div className="list" style={{ marginTop: 4 }}>
-                  {entries.map((e) => <ActivityRow key={e.id} e={e} />)}
-                </div>
-              </div>
-            ))}
+            <ActivityList days={days} />
             {!done && data.length >= PAGE && (
               <button className="btn" style={{ marginTop: 20 }} aria-busy={loadingMore} disabled={loadingMore} onClick={more}><span>Load older activity</span></button>
             )}
@@ -95,9 +88,9 @@ export default function Activity() {
   );
 }
 
-function ActivityRow({ e }: { e: AuditEntry }) {
+function ActivityRow({ e, last }: { e: AuditEntry; last?: boolean }) {
   return (
-    <div className="list-row activity-row">
+    <div className={`list-row activity-row ${last ? 'last' : ''}`}>
       <span className="activity-icon" style={{ background: TONE[e.action] ?? 'var(--surface-2)' }}>
         {e.action === 'auth.login' ? <LogIn size={14} /> : ICONS[e.entity] ?? <ActivityIcon size={14} />}
       </span>
@@ -126,6 +119,34 @@ function ActivityRowSkeleton() {
       <div className="grow"><Sk w="60%" /><div className="meta"><Sk w={70} /></div></div>
       <div className="row activity-who"><Sk w={120} /></div>
       <span className="activity-when"><Sk w={90} /></span>
+    </div>
+  );
+}
+
+const DAY_H = 44;
+const ROW_H = 57;
+type Item = { kind: 'day'; day: string } | { kind: 'row'; e: AuditEntry; last: boolean };
+
+/** Virtualized: only rows near the viewport are in the DOM, however much history is loaded. */
+function ActivityList({ days }: { days: [string, AuditEntry[]][] }) {
+  const items = useMemo<Item[]>(() => days.flatMap(([day, entries]) => [
+    { kind: 'day', day } as Item,
+    ...entries.map((e, i) => ({ kind: 'row', e, last: i === entries.length - 1 }) as Item),
+  ]), [days]);
+  const sizes = useMemo(() => items.map((it) => (it.kind === 'day' ? DAY_H : ROW_H)), [items]);
+  const { ref, range, offsets, total } = useWindowVirtual(sizes);
+  return (
+    <div ref={ref} className="virtual-list" style={{ height: total }}>
+      {items.slice(range[0], range[1]).map((it, k) => {
+        const i = range[0] + k;
+        return (
+          <div key={it.kind === 'day' ? `d${it.day}` : `r${it.e.id}`} className="virtual-item" style={{ height: sizes[i], transform: `translateY(${offsets[i]}px)` }}>
+            {it.kind === 'day'
+              ? <div className="activity-day"><span className="label">{fmtDate(it.day, { weekday: 'long', month: 'long', day: 'numeric' })}</span></div>
+              : <ActivityRow e={it.e} last={it.last} />}
+          </div>
+        );
+      })}
     </div>
   );
 }

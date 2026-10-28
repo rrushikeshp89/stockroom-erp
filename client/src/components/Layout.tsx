@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, ChevronsUpDown, LogOut, Menu, Plus, ShieldCheck, ShieldAlert, KeyRound, UserRound, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useApi } from '../lib/hooks';
+import { warmRoute } from '../lib/routes';
 import { Avatar, RoleBadge, Sk, useClickOutside, useDialog, useExit } from './ui';
 import type { Permission } from '../lib/types';
 
@@ -68,7 +69,8 @@ export default function Layout() {
 
           <nav className="tabs-nav" aria-label="Main">
             {links.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}>
+              <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')}
+                onMouseEnter={() => warmRoute(n.to, can)} onFocus={() => warmRoute(n.to, can)}>
                 {n.label}
                 {badge(n)}
               </NavLink>
@@ -126,7 +128,7 @@ export default function Layout() {
         <main className="main">
           {/* Content-only fade on route change (opacity, 140ms); the bars around it stay still. */}
           <div key={pathname} className="route main">
-            <Outlet />
+            <Suspense fallback={null}><Outlet /></Suspense>
           </div>
         </main>
       </div>
@@ -134,7 +136,8 @@ export default function Layout() {
       {navOpen && (
         <NavDrawer onClose={() => setNavOpen(false)}>
           {links.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')} onClick={() => setNavOpen(false)}>
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} className={({ isActive }) => (isActive ? 'active' : '')} onClick={() => setNavOpen(false)}
+              onFocus={() => warmRoute(n.to, can)} onTouchStart={() => warmRoute(n.to, can)}>
               {n.label}
               {badge(n)}
             </NavLink>

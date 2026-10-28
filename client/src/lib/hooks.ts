@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from './api';
 
@@ -138,4 +138,42 @@ export function useQueryState(key: string, fallback = '') {
     }, { replace: !opts?.push, preventScrollReset: true });
   }, [key, fallback, setParams]);
   return [value, set] as const;
+}
+
+/**
+ * Window-scroll virtualization for fixed-height items. Returns the slice of indexes near
+ * the viewport (plus overscan) and each item's offset; the container keeps the full height,
+ * so the page scrollbar stays honest and nothing jumps.
+ */
+export function useWindowVirtual(sizes: number[], overscan = 600) {
+  const ref = useRef<HTMLDivElement>(null);
+  const offsets = useMemo(() => {
+    const o = new Array(sizes.length + 1);
+    o[0] = 0;
+    for (let i = 0; i < sizes.length; i++) o[i + 1] = o[i] + sizes[i];
+    return o as number[];
+  }, [sizes]);
+  const [range, setRange] = useState<[number, number]>([0, Math.min(sizes.length, 40)]);
+
+  useLayoutEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      const el = ref.current;
+      if (!el) return;
+      const top = -el.getBoundingClientRect().top - overscan;
+      const bottom = top + window.innerHeight + overscan * 2;
+      let start = 0;
+      while (start < sizes.length && offsets[start + 1] < top) start++;
+      let end = start;
+      while (end < sizes.length && offsets[end] < bottom) end++;
+      setRange((r) => (r[0] === start && r[1] === end ? r : [start, end]));
+    };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(measure); };
+    measure();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('scroll', schedule); window.removeEventListener('resize', schedule); };
+  }, [offsets, sizes.length, overscan]);
+
+  return { ref, range, offsets, total: offsets[sizes.length] };
 }

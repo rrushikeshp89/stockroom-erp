@@ -1,19 +1,23 @@
-import type { ReactNode } from 'react';
+import { lazy, type ReactNode } from 'react';
 import { createBrowserRouter, createRoutesFromElements, Navigate, Route, RouterProvider, useLocation } from 'react-router-dom';
 import { useAuth } from './lib/auth';
 import type { Permission } from './lib/types';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Suppliers from './pages/Suppliers';
-import PurchaseOrders from './pages/PurchaseOrders';
-import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
-import PurchaseOrderForm from './pages/PurchaseOrderForm';
-import Users from './pages/Users';
-import Activity from './pages/Activity';
-import Access from './pages/Access';
 import Forbidden from './pages/Forbidden';
+import { pages } from './lib/routes';
+
+// Route-level code splitting. With v7_startTransition, navigating keeps the current page on
+// screen until the next chunk is ready (no blank flash); the nav warms chunks on hover.
+const Dashboard = lazy(pages.dashboard);
+const Products = lazy(pages.products);
+const Suppliers = lazy(pages.suppliers);
+const PurchaseOrders = lazy(pages.orders);
+const PurchaseOrderDetail = lazy(pages.orderDetail);
+const PurchaseOrderForm = lazy(pages.orderForm);
+const Users = lazy(pages.users);
+const Activity = lazy(pages.activity);
+const Access = lazy(pages.access);
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
