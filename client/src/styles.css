@@ -897,7 +897,7 @@ h1, h2, h3, h4, p { margin: 0; }
   .kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
   .kpi:nth-child(even) { padding-right: 0; }
 }
-@container (max-width: 360px) {
+@container (max-width: 300px) {
   .kpis { grid-template-columns: 1fr; }
   .kpi { padding: 0; border-left: 0; }
 }
@@ -1034,3 +1034,6 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .toolbar-select { width: 160px; height: 32px; }
 @media (pointer: coarse), (max-width: 767px) { .toolbar-select { height: 44px; } }
+
+.supplier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 10px; }
+.supplier-grid .demo-account { min-height: 54px; width: 100%; }
