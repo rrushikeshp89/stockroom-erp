@@ -7,7 +7,7 @@ orders, suggests what to reorder, and enforces **strict role-based access contro
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Express%20%2B%20SQLite-151515) ![Tests](https://img.shields.io/badge/tests-node%3Atest-1FB83F) ![A11y](https://img.shields.io/badge/WCAG-AA-1FB83F)
 
 **Live demo:** **https://stockroom-erp.onrender.com** — use the one-click demo buttons on the sign-in page
-(free plan: the first visit after idle takes ~30s to wake, and the demo data resets on restart) · [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/rrushikeshp89/stockroom-erp)
+(free plan: the first visit after idle takes ~30s to wake, and the demo data resets on restart) ·
 
 ![Stockroom dashboard](docs/ux/after/dashboard-1440.png)
 
