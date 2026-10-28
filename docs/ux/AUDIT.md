@@ -7,7 +7,7 @@ protocol: 9 pages × 7 widths (360, 390, 768, 1024, 1280, 1440, 1920) × 3 roles
 Each run records load CLS with the elements that moved, CLS from scripted interactions
 (tab switches, pagination, drawers, form actions) at 390/1024/1440, the page-height jump on
 in-app route re-entry, horizontal overflow, sub-44px tap targets and console output.
-Raw data: [`before.json`](before.json). Screenshots: [`before/`](before/). A second pass ran in
+Screenshots: [`before/`](before/). A second pass ran in
 the desktop browser pane (real Windows scrollbars, cold font cache) to cover what headless
 can't show.
 

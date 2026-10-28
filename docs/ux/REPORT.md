@@ -3,7 +3,7 @@
 The visual design, RBAC (`server/src/rbac.js`), transaction logic (`server/src/services/purchaseOrders.js`,
 `schema.sql`) and API contracts are unchanged. Every number below is measured by
 `tools/ux-audit.mjs`: headless Chrome, 9 pages × 7 widths (360–1920) × 3 roles = 175 runs per pass.
-Phase 1 findings are in [AUDIT.md](AUDIT.md); raw data is in [before.json](before.json) and [after.json](after.json).
+Phase 1 findings are in [AUDIT.md](AUDIT.md). Raw run data isn't committed; regenerate it with `node tools/ux-audit.mjs <label>`.
 
 ## Commits
 

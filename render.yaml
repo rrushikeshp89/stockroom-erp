@@ -1,0 +1,21 @@
+# Render Blueprint — one web service: the Express API also serves the built React app.
+# Free plan note: the filesystem is ephemeral, so the SQLite demo database is re-seeded
+# with fresh data whenever the service restarts or redeploys.
+services:
+  - type: web
+    name: stockroom-erp
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true

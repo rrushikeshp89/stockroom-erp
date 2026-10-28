@@ -1,5 +1,21 @@
+# Dependencies & builds
 node_modules/
 client/dist/
+
+# Local data (the API seeds a fresh demo database on first start)
 server/data/
+
+# Environment & secrets
+.env
+.env.*
+
+# Editor / tooling
+.claude/
+.vscode/
+.idea/
 *.log
 .DS_Store
+Thumbs.db
+
+# Generated QA output (recreate with the scripts in tools/)
+docs/ux/*.json

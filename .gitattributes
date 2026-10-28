@@ -1,0 +1,4 @@
+# Normalise line endings to LF in the repo (the app deploys to Linux).
+* text=auto eol=lf
+*.png binary
+*.woff2 binary
