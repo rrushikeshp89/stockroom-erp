@@ -5,6 +5,7 @@ import type { Permission } from './lib/types';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Forbidden from './pages/Forbidden';
+import { Reconnecting } from './pages/Login';
 import { pages } from './lib/routes';
 
 // Route-level code splitting. With v7_startTransition, navigating keeps the current page on
@@ -20,9 +21,9 @@ const Activity = lazy(pages.activity);
 const Access = lazy(pages.access);
 
 function RequireAuth({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, offline, retry } = useAuth();
   const location = useLocation();
-  if (loading) return null;
+  if (loading) return offline ? <Reconnecting onRetry={retry} /> : null;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <>{children}</>;
 }

@@ -25,13 +25,40 @@ const publicUser = (u) => ({
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
+router.get('/health', (req, res) => res.json({ ok: true }));
+
+// Failed sign-ins per IP + email: 8 per 10 minutes, then a clear "try again later".
+const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 8;
+const loginFailures = new Map();
+
 router.post('/auth/login', (req, res) => {
-  const { email, password } = z.object({ email: text().email(), password: z.string().min(1) }).parse(req.body);
+  const body = z.object({
+    email: z.string({ required_error: 'Enter your email' }).trim().toLowerCase().email('Enter a valid email address'),
+    password: z.string({ required_error: 'Enter your password' }).min(1, 'Enter your password'),
+  }).safeParse(req.body);
+  if (!body.success) throw new HttpError(400, body.error.issues[0].message);
+  const { email, password } = body.data;
+
+  const key = `${req.ip}|${email}`;
+  const now = Date.now();
+  const record = loginFailures.get(key);
+  if (record && now - record.first > LOGIN_WINDOW_MS) loginFailures.delete(key);
+  const current = loginFailures.get(key);
+  if (current && current.count >= LOGIN_MAX_FAILURES) {
+    const minutes = Math.ceil((LOGIN_WINDOW_MS - (now - current.first)) / 60000);
+    res.set('Retry-After', String(minutes * 60));
+    throw new HttpError(429, `Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`);
+  }
+
   const user = one('SELECT * FROM users WHERE email = ?', email);
   if (!user || !verifyPassword(password, user.password_hash)) {
+    loginFailures.set(key, { first: current?.first ?? now, count: (current?.count ?? 0) + 1 });
+    if (loginFailures.size > 5000) loginFailures.clear(); // bound memory under abuse
     throw new HttpError(401, 'Email or password is incorrect');
   }
-  if (!user.active) throw new HttpError(403, 'This account has been deactivated');
+  loginFailures.delete(key);
+  if (!user.active) throw new HttpError(403, 'This account has been deactivated. Ask an admin to reactivate it.');
   audit(user.id, 'auth.login', 'user', user.id, `${user.name} signed in`);
   res.json({ token: signToken(user), user: { ...publicUser(user), permissions: permissionsFor(user.role) } });
 });

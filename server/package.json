@@ -6,7 +6,7 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "node --disable-warning=ExperimentalWarning --watch src/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch-path=./src src/index.js",
     "start": "node --disable-warning=ExperimentalWarning src/index.js",
     "seed": "node --disable-warning=ExperimentalWarning src/seed.js",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""

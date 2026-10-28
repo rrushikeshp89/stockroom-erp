@@ -13,6 +13,9 @@ export const forbidden = (message = 'You do not have permission to do that') => 
 
 // Translates validation and SQLite constraint failures into clean API errors.
 export function errorHandler(err, req, res, _next) {
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'The request body is not valid JSON' });
+  }
   if (err instanceof HttpError) {
     return res.status(err.status).json({ error: err.message, details: err.details });
   }
