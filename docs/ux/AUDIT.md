@@ -1,5 +1,7 @@
 # Stockroom — UX audit (Phase 1, baseline `1f3e8fd`)
 
+> **Status:** all findings below were addressed or explicitly deferred — see [REPORT.md](REPORT.md) for before/after measurements.
+
 **Method.** `node tools/ux-audit.mjs before --shots` drives headless Chrome over the DevTools
 protocol: 9 pages × 7 widths (360, 390, 768, 1024, 1280, 1440, 1920) × 3 roles = 175 runs.
 Each run records load CLS with the elements that moved, CLS from scripted interactions

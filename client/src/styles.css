@@ -865,7 +865,14 @@ h1, h2, h3, h4, p { margin: 0; }
 /* ── Layout breakpoints ───────────────────────────────────────────────────── */
 
 @media (max-width: 1180px) {
-  .dash, .detail { grid-template-columns: 1fr; }
+  .dash { grid-template-columns: 1fr; }
+}
+/* Detail and form pages keep their side panel down to 1024, so adding lines never pushes it around. */
+@media (max-width: 1023px) {
+  .detail { grid-template-columns: 1fr; }
+}
+@media (min-width: 1024px) and (max-width: 1180px) {
+  .detail { grid-template-columns: minmax(0, 1fr) 320px; }
 }
 @media (max-width: 860px) {
   .brand-org, .subbar .hide-sm, .hide-sm { display: none !important; }

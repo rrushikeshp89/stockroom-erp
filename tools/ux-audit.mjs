@@ -130,10 +130,13 @@ const MEASURE = String(async function measure(page, withInter) {
   }
   // In-app route re-entry: leave and come back, sampling height every frame.
   const url = location.pathname + location.search;
-  const go = (u) => { history.pushState({}, '', u); dispatchEvent(new PopStateEvent('popstate')); };
+  // Router-shaped history entries (usr/key/idx), so React Router treats them like its own.
+  const go = (u) => { history.pushState({ usr: null, key: Math.random().toString(36).slice(2, 10), idx: (history.state?.idx ?? 0) + 1 }, '', u); dispatchEvent(new PopStateEvent('popstate', { state: history.state })); };
   go(url.startsWith('/access') ? '/' : '/access'); await sleep(900); take();
+  // Sample only once the new route's content exists (transitions keep the old page up until then).
+  const oldRoute = document.querySelector('.route');
   const heights = []; go(url); const t0 = performance.now();
-  await new Promise((done) => { const tick = () => { const m = document.querySelector('.main'); heights.push(Math.round(m ? m.scrollHeight : de.scrollHeight)); performance.now() - t0 < 1500 ? requestAnimationFrame(tick) : done(); }; requestAnimationFrame(tick); });
+  await new Promise((done) => { const tick = () => { const r = document.querySelector('.route'); const m = document.querySelector('.main'); if (!oldRoute || r !== oldRoute) heights.push(Math.round(m ? m.scrollHeight : de.scrollHeight)); performance.now() - t0 < 1500 ? requestAnimationFrame(tick) : done(); }; requestAnimationFrame(tick); });
   const distinct = [...new Set(heights)];
   res.reentry = { cls: tally(take()).v, heights: distinct.length > 1 ? `${distinct[0]}→${distinct.at(-1)} (${distinct.length} sizes)` : 'stable' };
   return res;

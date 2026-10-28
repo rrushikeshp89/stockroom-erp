@@ -284,7 +284,8 @@ const ByCategory = memo(function ByCategory({ data, finance, products, productsE
 // ── Purchase orders panel ────────────────────────────────────────────────────
 
 type Tab = 'all' | POStatus;
-const ORDER_COLS = (finance: boolean) => (finance ? ['31%', '9%', '13%', '14%', '9%', '24%'] : ['36%', '10%', '15%', '15%', '24%']);
+// Fixed pixel widths for short columns; the supplier name takes whatever is left.
+const ORDER_COLS = (finance: boolean): (string | number)[] => (finance ? ['auto', 62, 80, 84, 56, 150] : ['auto', 64, 90, 96, 150]);
 
 const OrdersPanel = memo(function OrdersPanel({ data, finance }: { data: DashboardData | null; finance: boolean }) {
   const navigate = useNavigate();
@@ -335,7 +336,7 @@ const OrdersPanel = memo(function OrdersPanel({ data, finance }: { data: Dashboa
 
       <div className="table-wrap">
         <table className="table fixed" style={{ minWidth: finance ? 560 : 480 }}>
-          <colgroup>{cols.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
+          <colgroup>{cols.map((w, i) => <col key={i} style={w === 'auto' ? undefined : { width: w }} />)}</colgroup>
           <thead>
             <tr>
               <th>Supplier</th>

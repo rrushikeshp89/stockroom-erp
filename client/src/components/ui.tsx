@@ -201,6 +201,12 @@ export function useDialog(panel: React.RefObject<HTMLElement>, onClose: () => vo
       document.removeEventListener('keydown', onKey);
       if (--scrollLocks === 0) document.documentElement.style.overflow = '';
       if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+      else {
+        // The trigger is gone (e.g. "Approve" disappears once approved): land on the page heading
+        // rather than <body>, so keyboard and screen-reader users keep their place.
+        const heading = document.querySelector<HTMLElement>('main h1');
+        if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
+      }
     };
   }, [panel]);
 }
