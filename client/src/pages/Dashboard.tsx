@@ -1,14 +1,15 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowUp, ArrowDown, BarChart3, LineChart, MoreVertical, PackageCheck, Sparkles, Truck, FilePen, CheckCircle2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, BarChart3, LineChart, MoreVertical, Table2, PackageCheck, Sparkles, Truck, FilePen, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import { useApi, useSearchHotkey } from '../lib/hooks';
 import type { Dashboard as DashboardData, Product, PurchaseOrder, POStatus } from '../lib/types';
 import { fmtCompactMoney, fmtDate, fmtMoney0, fmtNum, fmtPct, relativeDay } from '../lib/format';
+import RowMenu from '../components/RowMenu';
 import { BarStrip, FlowChart, Gauge, SegBar, Sparkline, TargetBars, type Series } from '../components/charts';
 import {
-  Avatar, Empty, ErrorState, FillerRows, Pagination, POStatusPill, SearchInput, SegTabs, Sk, SkeletonRows, SupplierLogo, TableEmpty, usePaged, useToast,
+  Avatar, Collapse, Empty, ErrorState, FillerRows, Pagination, POStatusPill, SearchInput, SegTabs, Sk, SkeletonRows, SupplierLogo, TableEmpty, usePaged, useToast,
 } from '../components/ui';
 
 const CATEGORY_COLORS = ['#1fb83f', '#4fc93f', '#a6d93a', '#d4e45a', '#efd88a', '#f0e4b8', '#e1e4e1'];
@@ -109,6 +110,7 @@ const FlowSection = memo(function FlowSection({ data, finance }: { data: Dashboa
   const [mode, setMode] = useState<'line' | 'bar'>('line');
   const [units, setUnits] = useState(!finance);
   const [show, setShow] = useState({ purchased: true, consumed: true, wasted: true });
+  const [table, setTable] = useState(false);
   const flow = data?.flow ?? [];
   const pick = (k: 'purchased' | 'consumed' | 'wasted') => flow.map((f) => (units ? f[`${k}_units`] : f[k] ?? 0));
 
@@ -124,7 +126,7 @@ const FlowSection = memo(function FlowSection({ data, finance }: { data: Dashboa
       <SectionHead title={finance ? 'Purchases and consumption' : 'Stock in and out'}>
         <button className={`icon-btn ${mode === 'line' ? 'active' : ''}`} onClick={() => setMode('line')} aria-label="Line chart" aria-pressed={mode === 'line'}><LineChart size={15} /></button>
         <button className={`icon-btn ${mode === 'bar' ? 'active' : ''}`} onClick={() => setMode('bar')} aria-label="Bar chart" aria-pressed={mode === 'bar'}><BarChart3 size={15} /></button>
-        <button className="icon-btn" aria-label="More chart options"><MoreVertical size={16} /></button>
+        <RowMenu label="Chart options" items={[{ label: table ? 'Hide data table' : 'View data as table', icon: <Table2 size={15} />, onClick: () => setTable((t) => !t) }]} />
       </SectionHead>
       {data ? (
         <FlowChart
@@ -133,6 +135,7 @@ const FlowSection = memo(function FlowSection({ data, finance }: { data: Dashboa
           mode={mode}
           format={fmt}
           tipTitle={(i) => `Week of ${fmtDate(flow[i].week, { month: 'short', day: 'numeric', year: 'numeric' })}`}
+          label={finance ? 'Weekly purchases, consumption and waste' : 'Weekly units in and out'}
           leftLabel={units ? 'Units' : 'Purchased, consumed, $'}
           rightLabel={show.wasted && mode === 'line' ? (units ? 'Waste, units' : 'Waste, $') : undefined}
         />
@@ -152,6 +155,20 @@ const FlowSection = memo(function FlowSection({ data, finance }: { data: Dashboa
           </label>
         )}
       </div>
+      {/* Text alternative for the chart (expands with grid-template-rows, no height measuring). */}
+      <Collapse open={table}>
+        <div className="table-wrap" style={{ marginTop: 16 }}>
+          <table className="table compact">
+            <caption className="sr-only">{finance ? 'Weekly purchases, consumption and waste' : 'Weekly units in and out'}</caption>
+            <thead><tr><th scope="col">Week of</th>{series.map((s) => <th key={s.key} scope="col" className="num">{s.label}</th>)}</tr></thead>
+            <tbody>
+              {flow.map((f, i) => (
+                <tr key={f.week}><th scope="row" style={{ fontWeight: 500 }}>{fmtDate(f.week)}</th>{series.map((s) => <td key={s.key} className="num">{fmt(s.values[i])}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Collapse>
     </section>
   );
 });
@@ -161,9 +178,12 @@ const FlowSection = memo(function FlowSection({ data, finance }: { data: Dashboa
 const CashTied = memo(function CashTied({ data }: { data: DashboardData | null }) {
   const inv = data?.inventory;
   const over = inv ? inv.value > inv.target : false;
+  const [table, setTable] = useState(false);
   return (
     <section className="section">
-      <SectionHead title="Cash tied in stock" />
+      <SectionHead title="Cash tied in stock">
+        <RowMenu label="Chart options" items={[{ label: table ? 'Hide data table' : 'View data as table', icon: <Table2 size={15} />, onClick: () => setTable((t) => !t) }]} />
+      </SectionHead>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <span className="label">Stock value</span>
@@ -172,12 +192,21 @@ const CashTied = memo(function CashTied({ data }: { data: DashboardData | null }
         <span className="muted" style={{ fontSize: 11.5 }}>{inv ? `Target: ≤${fmtCompactMoney(inv.target)}` : <Sk w={80} />}</span>
       </div>
       <div style={{ marginTop: 22 }}>
-        {inv ? <TargetBars values={inv.history.map((h) => h.value)} target={inv.target} labels={inv.history.map((h) => fmtDate(h.week))} format={fmtMoney0} />
+        {inv ? <TargetBars label="Weekly stock value against target" values={inv.history.map((h) => h.value)} target={inv.target} labels={inv.history.map((h) => fmtDate(h.week))} format={fmtMoney0} />
           : <div className="skeleton" style={{ height: 130 }} />}
       </div>
       <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
         {!inv ? <Sk w={200} /> : over ? 'Above target — consider smaller order batches.' : 'Within target — stock is lean.'}
       </p>
+      <Collapse open={table}>
+        <div className="table-wrap" style={{ marginTop: 12 }}>
+          <table className="table compact">
+            <caption className="sr-only">Weekly stock value against target</caption>
+            <thead><tr><th scope="col">Week of</th><th scope="col" className="num">Stock value</th><th scope="col" className="num">Target</th></tr></thead>
+            <tbody>{inv?.history.map((h) => <tr key={h.week}><th scope="row" style={{ fontWeight: 500 }}>{fmtDate(h.week)}</th><td className="num">{fmtMoney0(h.value)}</td><td className="num">{fmtMoney0(inv.target)}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </Collapse>
     </section>
   );
 });

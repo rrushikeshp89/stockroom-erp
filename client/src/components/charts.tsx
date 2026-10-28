@@ -111,7 +111,7 @@ export interface Series {
   visible?: boolean;
 }
 
-export const FlowChart = memo(function FlowChart({ labels, series, mode, format, tipTitle, height = 230, leftLabel, rightLabel }: {
+export const FlowChart = memo(function FlowChart({ labels, series, mode, format, tipTitle, height = 230, leftLabel, rightLabel, label }: {
   labels: string[];
   series: Series[];
   mode: 'line' | 'bar';
@@ -120,6 +120,8 @@ export const FlowChart = memo(function FlowChart({ labels, series, mode, format,
   height?: number;
   leftLabel?: string;
   rightLabel?: string;
+  /** Accessible name; arrow keys then step through the points and read each tooltip. */
+  label: string;
 }) {
   const [wrap, W] = useElementWidth<HTMLDivElement>();
   const animate = useFirstMount();
@@ -153,7 +155,9 @@ export const FlowChart = memo(function FlowChart({ labels, series, mode, format,
   const tipX = hover == null ? 0 : mode === 'bar' ? padL + groupW * (hover + 0.5) : x(hover);
 
   return (
-    <div className="chart-wrap" ref={wrap} style={{ height: H }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+    <div className="chart-wrap" ref={wrap} style={{ height: H }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}
+      tabIndex={0} role="group" aria-roledescription="chart" aria-label={`${label}. Use left and right arrow keys to read each week.`}
+      onKeyDown={(e) => stepKeys(e, n, hover, setHover)} onFocus={() => setHover((h) => h ?? n - 1)} onBlur={() => setHover(null)}>
       {W > 0 && (
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
           <defs>
@@ -212,7 +216,7 @@ export const FlowChart = memo(function FlowChart({ labels, series, mode, format,
         </svg>
       )}
       {hover != null && (
-        <div className="chart-tip" style={{ transform: `translate(${hover > n * 0.6 ? `calc(${tipX}px - 100% - 14px)` : `${tipX + 14}px`}, 10px)` }}>
+        <div className="chart-tip" role="status" aria-live="polite" style={{ transform: `translate(${hover > n * 0.6 ? `calc(${tipX}px - 100% - 14px)` : `${tipX + 14}px`}, 10px)` }}>
           <div className="tip-date">{tipTitle(hover)}</div>
           {series.filter(shown).map((s) => (
             <div key={s.key} className="tip-row">
@@ -228,8 +232,8 @@ export const FlowChart = memo(function FlowChart({ labels, series, mode, format,
 
 // ── Column chart with dashed target markers (cash tied in stock) ─────────────
 
-export const TargetBars = memo(function TargetBars({ values, target, labels, format, height = 130 }: {
-  values: number[]; target: number; labels: string[]; format: (v: number) => string; height?: number;
+export const TargetBars = memo(function TargetBars({ values, target, labels, format, height = 130, label }: {
+  values: number[]; target: number; labels: string[]; format: (v: number) => string; height?: number; label: string;
 }) {
   const [wrap, W] = useElementWidth<HTMLDivElement>();
   const animate = useFirstMount();
@@ -239,7 +243,9 @@ export const TargetBars = memo(function TargetBars({ values, target, labels, for
   const bw = (Math.max(W, 1) - pad * 2) / values.length;
   const y = (v: number) => H - (v / max) * H;
   return (
-    <div className="chart-wrap" ref={wrap} style={{ height: H }} onMouseLeave={() => setHover(null)}>
+    <div className="chart-wrap" ref={wrap} style={{ height: H }} onMouseLeave={() => setHover(null)}
+      tabIndex={0} role="group" aria-roledescription="chart" aria-label={`${label}. Use left and right arrow keys to read each week.`}
+      onKeyDown={(e) => stepKeys(e, values.length, hover, setHover)} onFocus={() => setHover((h) => h ?? values.length - 1)} onBlur={() => setHover(null)}>
       {W > 0 && (
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
           {values.map((v, i) => {
@@ -258,7 +264,7 @@ export const TargetBars = memo(function TargetBars({ values, target, labels, for
         </svg>
       )}
       {hover != null && (
-        <div className="chart-tip" style={{ minWidth: 170, bottom: '105%', transform: `translateX(calc(${pad + (hover + 0.5) * bw}px - 50%))` }}>
+        <div className="chart-tip" role="status" aria-live="polite" style={{ minWidth: 170, bottom: '105%', transform: `translateX(calc(${pad + (hover + 0.5) * bw}px - 50%))` }}>
           <div className="tip-date">Week of {labels[hover]}</div>
           <div className="tip-row"><span><i className="dot" style={{ background: values[hover] > target ? 'var(--red)' : 'var(--green)' }} />Stock value</span><b>{format(values[hover])}</b></div>
           <div className="tip-row"><span><i className="dot" style={{ background: '#151515' }} />Target</span><b>{format(target)}</b></div>
@@ -267,6 +273,20 @@ export const TargetBars = memo(function TargetBars({ values, target, labels, for
     </div>
   );
 });
+
+/** Arrow keys move the highlighted point (Home/End jump, Esc clears) — keyboard access to tooltips. */
+function stepKeys(e: React.KeyboardEvent, n: number, hover: number | null, set: (i: number | null) => void) {
+  const keys: Record<string, () => number | null> = {
+    ArrowLeft: () => Math.max(0, (hover ?? n) - 1),
+    ArrowRight: () => Math.min(n - 1, (hover ?? -1) + 1),
+    Home: () => 0,
+    End: () => n - 1,
+    Escape: () => null,
+  };
+  if (!keys[e.key]) return;
+  e.preventDefault();
+  set(keys[e.key]());
+}
 
 function niceMax(v: number) {
   const exp = Math.pow(10, Math.floor(Math.log10(v)));
