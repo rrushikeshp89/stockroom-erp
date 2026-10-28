@@ -270,7 +270,7 @@ render.yaml                 Render blueprint (single web service)
 <summary><b>Deploying your own copy</b></summary>
 <br>
 
-`render.yaml` deploys the app to [Render](https://render.com) as a single web service: in Render choose **New → Blueprint** and select this repository. Render generates `JWT_SECRET` for you.
+`render.yaml` deploys the app to [Render](https://render.com) as a single web service: in Render choose **New → Blueprint** and select this repository. Render generates `JWT_SECRET` for you, and every push to `main` redeploys automatically, as long as Render's GitHub app has access to the repository (GitHub → Settings → Applications → Render).
 
 To run the production build anywhere else:
 
