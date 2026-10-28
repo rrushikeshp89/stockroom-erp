@@ -13,7 +13,7 @@ Requires **Node.js 22.13+** (uses the built-in `node:sqlite`; no native build st
 ```bash
 npm install            # root tooling
 npm run install:all    # server + client dependencies
-npm run dev            # API on :4000, web on :5173
+npm run dev            # API on :5180, web on :5173
 ```
 
 Open http://localhost:5173. The database seeds itself on first run with ~26 weeks of simulated trading.
@@ -102,7 +102,7 @@ client/
 
 ```bash
 npm run build                 # type-checks and builds the client
-npm start --prefix server     # serves the API and client/dist on :4000
+npm start --prefix server     # serves the API and client/dist on :5180
 ```
 
 Set `JWT_SECRET` in production.

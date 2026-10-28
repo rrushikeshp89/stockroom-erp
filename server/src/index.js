@@ -33,5 +33,5 @@ if (fs.existsSync(dist)) {
 
 app.use(errorHandler);
 
-const port = Number(process.env.PORT) || 4000;
+const port = Number(process.env.PORT) || 5180;
 app.listen(port, () => console.log(`Stockroom API listening on http://localhost:${port}`));
