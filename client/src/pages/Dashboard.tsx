@@ -285,7 +285,7 @@ const ByCategory = memo(function ByCategory({ data, finance, products, productsE
 
 type Tab = 'all' | POStatus;
 // Fixed pixel widths for short columns; the supplier name takes whatever is left.
-const ORDER_COLS = (finance: boolean): (string | number)[] => (finance ? ['auto', 62, 92, 80, 56, 150] : ['auto', 64, 96, 92, 150]);
+const ORDER_COLS = (finance: boolean): (string | number)[] => (finance ? ['auto', 62, 92, 90, 56, 148] : ['auto', 64, 96, 96, 148]);
 
 const OrdersPanel = memo(function OrdersPanel({ data, finance }: { data: DashboardData | null; finance: boolean }) {
   const navigate = useNavigate();

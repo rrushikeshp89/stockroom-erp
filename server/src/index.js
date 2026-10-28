@@ -41,6 +41,8 @@ if (fs.existsSync(dist)) {
       if (/[\\/](assets|fonts)[\\/]/.test(file)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
     },
   }));
+  // A missing build file is a real 404 — never the app shell, which a stale tab would try to run as JS.
+  app.use(['/assets', '/fonts'], (req, res) => res.status(404).type('text/plain').send('Not found'));
   // Client-side routes all serve the app shell, which must never be cached stale.
   app.get(/^(?!\/api).*/, (req, res) => {
     res.set('Cache-Control', 'no-cache');
