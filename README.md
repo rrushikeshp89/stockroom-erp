@@ -6,7 +6,7 @@ orders, suggests what to reorder, and enforces **strict role-based access contro
 
 ![Stack](https://img.shields.io/badge/stack-React%20%2B%20Express%20%2B%20SQLite-151515) ![Tests](https://img.shields.io/badge/tests-node%3Atest-1FB83F) ![A11y](https://img.shields.io/badge/WCAG-AA-1FB83F)
 
-**Live demo:** _deploying — link added after the first Render deploy_
+**Live demo:** _link added after the first deploy_ · [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/rrushikeshp89/stockroom-erp)
 
 ![Stockroom dashboard](docs/ux/after/dashboard-1440.png)
 
