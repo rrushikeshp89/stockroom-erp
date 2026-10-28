@@ -152,9 +152,9 @@ export default function PurchaseOrderForm() {
           ) : (
             <>
               <div className="table-wrap">
-                <table className="table compact fixed lines-table" style={{ minWidth: finance ? 620 : 480 }}>
+                <table className="table compact fixed lines-table" style={{ minWidth: finance ? 680 : 520 }}>
                   <colgroup>
-                    <col /><col style={{ width: 150 }} /><col style={{ width: 110 }} />
+                    <col /><col style={{ width: 200 }} /><col style={{ width: 110 }} />
                     {finance && <col style={{ width: 120 }} />}{finance && <col style={{ width: 100 }} />}<col style={{ width: 52 }} />
                   </colgroup>
                   <thead>
