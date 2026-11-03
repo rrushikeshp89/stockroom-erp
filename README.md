@@ -6,7 +6,7 @@
 
 **Inventory & purchase-order ERP for small shops and cafés — know what's in the back room, reorder before it runs out.**
 
-<a href="https://stockroom-erp.onrender.com"><img src="https://img.shields.io/badge/Live_demo-stockroom--erp.onrender.com-1FB83F?style=for-the-badge&logo=render&logoColor=white" alt="Open the live demo at stockroom-erp.onrender.com"></a>
+<a href="https://erp.fluentopsai.com"><img src="https://img.shields.io/badge/Live_demo-stockroom--erp.onrender.com-1FB83F?style=for-the-badge&logo=render&logoColor=white" alt="Open the live demo at stockroom-erp.onrender.com"></a>
 
 [Try it live](#try-it-in-30-seconds) · [Screenshots](#screenshots) · [Features](#features) · [How it works](#how-it-works) · [Run locally](#run-it-locally) · [Skills](#skills-demonstrated)
 
@@ -44,7 +44,7 @@ A small retail shop or café lives between two mistakes: **order too much and ca
 
 ## Try it in 30 seconds
 
-1. Open **[stockroom-erp.onrender.com](https://stockroom-erp.onrender.com)**.
+1. Open **[stockroom-erp.onrender.com](https://erp.fluentopsai.com)**.
 2. On the sign-in page, click one of the **demo role** buttons — no typing needed.
 3. Sign out from the avatar menu (top right) and try another role to see how the app changes.
 
