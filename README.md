@@ -44,7 +44,7 @@ A small retail shop or café lives between two mistakes: **order too much and ca
 
 ## Try it in 30 seconds
 
-1. Open **[stockroom-erp.onrender.com](https://erp.fluentopsai.com)**.
+1. Open **[erp.fluentopsai.com](https://erp.fluentopsai.com)**.
 2. On the sign-in page, click one of the **demo role** buttons — no typing needed.
 3. Sign out from the avatar menu (top right) and try another role to see how the app changes.
 
